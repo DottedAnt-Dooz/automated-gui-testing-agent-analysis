@@ -1,0 +1,11 @@
+{
+  "currency": "USD",
+  "unit": "per_1m_tokens",
+  "models": {
+    "example-model": {
+      "input": 0.0,
+      "cachedInput": 0.0,
+      "output": 0.0
+    }
+  }
+}
