@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string] $RunsRoot = '',
+    [string[]] $RunsRoot = @(),
 
     [string] $OutputPath = '',
 
@@ -15,9 +15,9 @@ try {
     $modulePath = Join-Path -Path $PSScriptRoot -ChildPath 'Analysis\AutomatedGuiTestingAnalysis.psm1'
     Import-Module $modulePath -Force
 
-    if (-not $RunsRoot) {
+    if (-not $RunsRoot -or $RunsRoot.Count -eq 0) {
         $workspaceRoot = Split-Path -Parent $PSScriptRoot
-        $RunsRoot = Join-Path -Path $workspaceRoot -ChildPath 'automated-gui-testing-agent-framework\runs'
+        $RunsRoot = @((Join-Path -Path $workspaceRoot -ChildPath 'automated-gui-testing-agent-framework\runs'))
     }
     if (-not $OutputPath) {
         $OutputPath = Join-Path -Path $PSScriptRoot -ChildPath ('analysis-output\dashboard_{0}.html' -f (Get-Date -Format 'yyyyMMdd_HHmmss'))

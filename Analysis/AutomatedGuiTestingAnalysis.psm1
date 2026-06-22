@@ -201,6 +201,22 @@ function Get-AGTACostEstimate {
     return [Math]::Round($cost, 6)
 }
 
+function Test-AGTARunRoot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string] $Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path)) { return $false }
+    return (
+        (Test-Path -LiteralPath (Join-Path -Path $Path -ChildPath 'run.json')) -or
+        (Test-Path -LiteralPath (Join-Path -Path $Path -ChildPath 'logs\metrics.jsonl')) -or
+        (Test-Path -LiteralPath (Join-Path -Path $Path -ChildPath 'results\authoring-result.json')) -or
+        (Test-Path -LiteralPath (Join-Path -Path $Path -ChildPath 'results\result.json'))
+    )
+}
+
 function Get-AGTARunRoots {
     [CmdletBinding()]
     param(
@@ -209,14 +225,72 @@ function Get-AGTARunRoots {
 
     if (-not (Test-Path -LiteralPath $RunsRoot)) { return @() }
 
-    Get-ChildItem -LiteralPath $RunsRoot -Directory |
-        Where-Object {
-            (Test-Path -LiteralPath (Join-Path -Path $_.FullName -ChildPath 'run.json')) -or
-            (Test-Path -LiteralPath (Join-Path -Path $_.FullName -ChildPath 'logs\metrics.jsonl')) -or
-            (Test-Path -LiteralPath (Join-Path -Path $_.FullName -ChildPath 'results\authoring-result.json'))
-        } |
-        Sort-Object Name |
-        ForEach-Object { $_.FullName }
+    $candidateRoots = New-Object System.Collections.Generic.List[string]
+    $runRootFull = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($RunsRoot)
+    $seenCandidates = @{}
+    $addCandidate = {
+        param([string] $Path)
+        if (-not $Path -or -not (Test-Path -LiteralPath $Path)) { return }
+        $fullPath = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Path)
+        if (-not $seenCandidates.ContainsKey($fullPath)) {
+            $seenCandidates[$fullPath] = $true
+            $candidateRoots.Add($fullPath)
+        }
+    }
+
+    & $addCandidate $runRootFull
+
+    foreach ($child in @(Get-ChildItem -LiteralPath $runRootFull -Directory -ErrorAction SilentlyContinue)) {
+        & $addCandidate $child.FullName
+        $childRunsRoot = Join-Path -Path $child.FullName -ChildPath 'runs'
+        if (Test-Path -LiteralPath $childRunsRoot) {
+            foreach ($runChild in @(Get-ChildItem -LiteralPath $childRunsRoot -Directory -ErrorAction SilentlyContinue)) {
+                & $addCandidate $runChild.FullName
+            }
+        }
+        foreach ($grandChild in @(Get-ChildItem -LiteralPath $child.FullName -Directory -ErrorAction SilentlyContinue)) {
+            if (
+                (Test-Path -LiteralPath (Join-Path -Path $grandChild.FullName -ChildPath 'run.json')) -or
+                (Test-Path -LiteralPath (Join-Path -Path $grandChild.FullName -ChildPath 'results\authoring-result.json')) -or
+                (Test-Path -LiteralPath (Join-Path -Path $grandChild.FullName -ChildPath 'results\result.json'))
+            ) {
+                & $addCandidate $grandChild.FullName
+            }
+        }
+    }
+
+    $nestedRunsRoot = Join-Path -Path $runRootFull -ChildPath 'runs'
+    if (Test-Path -LiteralPath $nestedRunsRoot) {
+        foreach ($child in @(Get-ChildItem -LiteralPath $nestedRunsRoot -Directory -ErrorAction SilentlyContinue)) {
+            & $addCandidate $child.FullName
+        }
+    }
+
+    $candidateRoots |
+        Sort-Object -Unique |
+        Where-Object { Test-AGTARunRoot -Path $_ } |
+        Sort-Object
+}
+
+function Resolve-AGTARunsRootPaths {
+    [CmdletBinding()]
+    param(
+        [string[]] $RunsRoot = @((Get-AGTAAnalysisDefaultRunsRoot))
+    )
+
+    $resolved = @()
+    foreach ($rootValue in @($RunsRoot)) {
+        foreach ($root in @(([string]$rootValue) -split '\s*,\s*')) {
+            if (-not $root) { continue }
+        try {
+            $resolved += $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($root)
+        }
+        catch {
+            $resolved += $root
+        }
+        }
+    }
+    return @($resolved | Sort-Object -Unique)
 }
 
 function Get-AGTAStepSummary {
@@ -257,7 +331,18 @@ function Get-AGTAPotatoSummary {
     )
 
     $commands = @()
-    if ($GeneratedResult -and $GeneratedResult.steps) {
+    if ($PotatoRecords.Count -gt 0) {
+        foreach ($record in $PotatoRecords) {
+            $parsed = Get-AGTAProperty -Object $record -Name 'parsed'
+            $commands += [pscustomobject][ordered]@{
+                command = [string](Get-AGTAProperty -Object $record -Name 'command')
+                ok = [bool](Get-AGTAProperty -Object $parsed -Name 'ok' $true)
+                durationMs = [int](ConvertTo-AGTANumber (Get-AGTAProperty -Object $parsed -Name 'durationMs') 0)
+                source = 'potato-commands'
+            }
+        }
+    }
+    elseif ($GeneratedResult -and $GeneratedResult.steps) {
         foreach ($step in @($GeneratedResult.steps)) {
             foreach ($commandRecord in @($step.commands)) {
                 $commands += [pscustomobject][ordered]@{
@@ -266,17 +351,6 @@ function Get-AGTAPotatoSummary {
                     durationMs = [int](ConvertTo-AGTANumber (Get-AGTAProperty -Object $commandRecord -Name 'durationMs') 0)
                     source = 'generated-result'
                 }
-            }
-        }
-    }
-    elseif ($PotatoRecords.Count -gt 0) {
-        foreach ($record in $PotatoRecords) {
-            $parsed = Get-AGTAProperty -Object $record -Name 'parsed'
-            $commands += [pscustomobject][ordered]@{
-                command = [string](Get-AGTAProperty -Object $record -Name 'command')
-                ok = [bool](Get-AGTAProperty -Object $parsed -Name 'ok' $true)
-                durationMs = [int](ConvertTo-AGTANumber (Get-AGTAProperty -Object $parsed -Name 'durationMs') 0)
-                source = 'potato-commands'
             }
         }
     }
@@ -373,6 +447,8 @@ function Get-AGTARolloutCandidates {
     if (Test-Path -LiteralPath $logs) { $roots += $logs }
     $parent = Split-Path -Parent $RunRoot
     if ($parent -and (Test-Path -LiteralPath $parent)) { $roots += $parent }
+    $grandParent = if ($parent) { Split-Path -Parent $parent } else { $null }
+    if ($grandParent -and (Test-Path -LiteralPath $grandParent)) { $roots += $grandParent }
 
     $seen = @{}
     foreach ($root in $roots) {
@@ -429,6 +505,7 @@ function Get-AGTACodexRolloutSummary {
             wallMs = 0
             exitCode = $null
             outputChars = 0
+            generatedOk = $null
         }
     }
 
@@ -444,12 +521,28 @@ function Get-AGTACodexRolloutSummary {
         if ($output -match 'Exit code:\s*(-?\d+)') {
             $callsById[$callId].exitCode = [int]$Matches[1]
         }
+        $outputMarker = $output.IndexOf('Output:')
+        if ($outputMarker -ge 0) {
+            $jsonText = $output.Substring($outputMarker + 7).Trim()
+            if ($jsonText.StartsWith('{')) {
+                try {
+                    $generatedResult = $jsonText | ConvertFrom-Json
+                    if ($generatedResult.PSObject.Properties.Name -contains 'ok') {
+                        $callsById[$callId].generatedOk = [bool]$generatedResult.ok
+                    }
+                }
+                catch {}
+            }
+        }
     }
 
     $shellCalls = @($callsById.Values | Where-Object { $_.name -eq 'shell_command' })
     $directPotato = @($shellCalls | Where-Object { $_.command -match 'potato(?:_|-)cli\\potato\.ps1|potato\.ps1' -and $_.command -notmatch '\\generated\\.*\.ps1' })
     $directPotatoUi = @($directPotato | Where-Object { $_.command -notmatch 'potato\.ps1[''"]?\s+state(\s|$)' })
-    $generatedScriptRuns = @($shellCalls | Where-Object { $_.command -match '\\generated\\.*\.ps1' -and $_.command -match 'powershell\.exe' })
+    $generatedScriptRuns = @($shellCalls | Where-Object {
+        $_.command -match '\\generated\\.*\.ps1' -and
+        ($_.command -match '^\s*&\s*[''"]' -or $_.command -match 'powershell(?:\.exe)?')
+    })
     $firstGenerated = $generatedScriptRuns | Sort-Object timestamp | Select-Object -First 1
     $firstExploration = $directPotatoUi | Sort-Object timestamp | Select-Object -First 1
     $lastExploration = $null
@@ -499,7 +592,7 @@ function Get-AGTACodexRolloutSummary {
         directPotatoCommandCount = $directPotato.Count
         directPotatoWallMs = [int](@($directPotato | Measure-Object -Property wallMs -Sum).Sum)
         validationRuns = $generatedScriptRuns.Count
-        failedValidationRuns = @($generatedScriptRuns | Where-Object { $null -ne $_.exitCode -and $_.exitCode -ne 0 }).Count
+        failedValidationRuns = @($generatedScriptRuns | Where-Object { ($null -ne $_.exitCode -and $_.exitCode -ne 0) -or ($null -ne $_.generatedOk -and -not $_.generatedOk) }).Count
         generatedScriptRunDurationMs = [int](@($generatedScriptRuns | Measure-Object -Property wallMs -Sum).Sum)
         toolOutputChars = [int](@($callsById.Values | Measure-Object -Property outputChars -Sum).Sum)
         largestToolOutputChars = [int](@($callsById.Values | Measure-Object -Property outputChars -Maximum).Maximum)
@@ -597,12 +690,29 @@ function ConvertTo-AGTARunSummary {
     if ($generatedResult -and $generatedResult.artifacts) {
         $commandLogPath = Get-AGTAProperty -Object $generatedResult.artifacts -Name 'commandLogPath'
     }
+    if ($commandLogPath -and -not (Test-Path -LiteralPath $commandLogPath)) {
+        $copiedCommandLogPath = Join-Path -Path (Join-Path -Path $runRootFull -ChildPath 'logs') -ChildPath (Split-Path -Leaf $commandLogPath)
+        if (Test-Path -LiteralPath $copiedCommandLogPath) {
+            $commandLogPath = $copiedCommandLogPath
+        }
+    }
     if ($commandLogPath -and (Test-Path -LiteralPath $commandLogPath)) {
         $potatoRecords = @(Read-AGTAJsonLines -Path $commandLogPath)
     }
     else {
         foreach ($commandLog in @(Get-ChildItem -LiteralPath (Join-Path -Path $runRootFull -ChildPath 'logs') -Filter 'potato-commands*.jsonl' -File -ErrorAction SilentlyContinue)) {
             $potatoRecords += @(Read-AGTAJsonLines -Path $commandLog.FullName)
+        }
+    }
+    $potatoRecordsForSummary = $potatoRecords
+    if ($generatedResult -and $generatedResult.steps -and -not $commandLogPath) {
+        $potatoRecordsForSummary = @()
+    }
+    elseif ($generatedResult -and $generatedResult.steps -and $commandLogPath) {
+        $executionId = Get-AGTAProperty -Object $generatedResult -Name 'executionId'
+        $commandLogLeaf = Split-Path -Leaf $commandLogPath
+        if (-not $executionId -or $commandLogLeaf -notmatch [regex]::Escape([string]$executionId)) {
+            $potatoRecordsForSummary = @()
         }
     }
     $pricing = Get-AGTAPricingConfig -Path $PricingPath
@@ -618,7 +728,7 @@ function ConvertTo-AGTARunSummary {
     if (-not $model -and $codexSummary) { $model = $codexSummary.model }
 
     $stepSummary = Get-AGTAStepSummary -GeneratedResult $generatedResult
-    $potatoSummary = Get-AGTAPotatoSummary -Metrics $metrics -PotatoRecords $potatoRecords -GeneratedResult $generatedResult
+    $potatoSummary = Get-AGTAPotatoSummary -Metrics $metrics -PotatoRecords $potatoRecordsForSummary -GeneratedResult $generatedResult
     $aiSummary = Get-AGTAAiSummary -Metrics $metrics -OpenAiRecords $openAiRecords -Pricing $pricing -Model $model
     if ($codexSummary -and $aiSummary.totalTokens -eq 0) {
         $aiSummary = [pscustomobject][ordered]@{
@@ -687,20 +797,112 @@ function ConvertTo-AGTARunSummary {
     }
 }
 
+function New-AGTAModelComparisonSummary {
+    [CmdletBinding()]
+    param(
+        [object[]] $Runs
+    )
+
+    $groups = [ordered]@{}
+    $delimiter = ' :: '
+    foreach ($run in @($Runs)) {
+        $provider = [string](Get-AGTAProperty -Object $run -Name 'provider' 'Unknown')
+        $model = [string](Get-AGTAProperty -Object $run -Name 'model' 'Unknown')
+        if (-not $provider) { $provider = 'Unknown' }
+        if (-not $model) { $model = 'Unknown' }
+        $key = "$provider$delimiter$model"
+        if (-not $groups.Contains($key)) { $groups[$key] = @() }
+        $groups[$key] += $run
+    }
+
+    $summaries = @()
+    foreach ($key in @($groups.Keys | Sort-Object)) {
+        $items = @($groups[$key])
+        if ($items.Count -eq 0) { continue }
+        $parts = $key -split [regex]::Escape($delimiter), 2
+        $provider = $parts[0]
+        $model = $(if ($parts.Count -gt 1) { $parts[1] } else { 'Unknown' })
+        $runCount = $items.Count
+        $validationRuns = [int](@($items | ForEach-Object { $_.stages.validationRuns } | Measure-Object -Sum).Sum)
+        $failedValidationRuns = [int](@($items | ForEach-Object { $_.stages.failedValidationRuns } | Measure-Object -Sum).Sum)
+        $costValues = @($items | ForEach-Object {
+            $cost = Get-AGTAProperty -Object $_.ai -Name 'estimatedCostUsd'
+            if ($null -ne $cost) { [double]$cost }
+        })
+        $totalCost = $null
+        $averageCost = $null
+        if ($costValues.Count -gt 0) {
+            $totalCost = [Math]::Round([double](@($costValues | Measure-Object -Sum).Sum), 6)
+            $averageCost = [Math]::Round($totalCost / $costValues.Count, 6)
+        }
+
+        $summaries += [pscustomobject][ordered]@{
+            key = $key
+            label = $(if ($provider -and $provider -ne 'Unknown') { "$provider / $model" } else { $model })
+            provider = $provider
+            model = $model
+            runCount = $runCount
+            succeeded = @($items | Where-Object { $_.ok }).Count
+            failed = @($items | Where-Object { -not $_.ok }).Count
+            successRate = [Math]::Round((@($items | Where-Object { $_.ok }).Count / [double]$runCount) * 100, 2)
+            totalAuthoringDurationMs = [int](@($items | ForEach-Object { $_.authoringDurationMs } | Measure-Object -Sum).Sum)
+            averageAuthoringDurationMs = [int]([Math]::Round(@($items | ForEach-Object { $_.authoringDurationMs } | Measure-Object -Average).Average))
+            averagePlanningDurationMs = [int]([Math]::Round(@($items | ForEach-Object { $_.stages.planningDurationMs } | Measure-Object -Average).Average))
+            averageExplorationDurationMs = [int]([Math]::Round(@($items | ForEach-Object { $_.stages.explorationDurationMs } | Measure-Object -Average).Average))
+            averageDevelopmentIterationDurationMs = [int]([Math]::Round(@($items | ForEach-Object { $_.stages.developmentIterationDurationMs } | Measure-Object -Average).Average))
+            totalValidationRuns = $validationRuns
+            failedValidationRuns = $failedValidationRuns
+            successfulValidationRuns = [Math]::Max(0, $validationRuns - $failedValidationRuns)
+            averageValidationRuns = [Math]::Round($validationRuns / [double]$runCount, 2)
+            totalGeneratedScriptRunDurationMs = [int](@($items | ForEach-Object { $_.agent.generatedScriptRunDurationMs } | Measure-Object -Sum).Sum)
+            averageGeneratedScriptRunDurationMs = [int]([Math]::Round(@($items | ForEach-Object { $_.agent.generatedScriptRunDurationMs } | Measure-Object -Average).Average))
+            inputTokens = [int64](@($items | ForEach-Object { $_.ai.inputTokens } | Measure-Object -Sum).Sum)
+            cachedInputTokens = [int64](@($items | ForEach-Object { $_.ai.cachedInputTokens } | Measure-Object -Sum).Sum)
+            outputTokens = [int64](@($items | ForEach-Object { $_.ai.outputTokens } | Measure-Object -Sum).Sum)
+            reasoningTokens = [int64](@($items | ForEach-Object { $_.ai.reasoningTokens } | Measure-Object -Sum).Sum)
+            totalTokens = [int64](@($items | ForEach-Object { $_.ai.totalTokens } | Measure-Object -Sum).Sum)
+            averageTokens = [int64]([Math]::Round(@($items | ForEach-Object { $_.ai.totalTokens } | Measure-Object -Average).Average))
+            totalCostUsd = $totalCost
+            averageCostUsd = $averageCost
+            totalPotatoCommands = [int](@($items | ForEach-Object { $_.potato.commandCount } | Measure-Object -Sum).Sum)
+            averagePotatoCommands = [Math]::Round(@($items | ForEach-Object { $_.potato.commandCount } | Measure-Object -Average).Average, 2)
+            failedPotatoCommands = [int](@($items | ForEach-Object { $_.potato.failed } | Measure-Object -Sum).Sum)
+            totalDirectPotatoCommands = [int](@($items | ForEach-Object { $_.agent.directPotatoCommandCount } | Measure-Object -Sum).Sum)
+            averageDirectPotatoCommands = [Math]::Round(@($items | ForEach-Object { $_.agent.directPotatoCommandCount } | Measure-Object -Average).Average, 2)
+            totalToolOutputChars = [int64](@($items | ForEach-Object { $_.agent.toolOutputChars } | Measure-Object -Sum).Sum)
+            averageToolOutputChars = [int64]([Math]::Round(@($items | ForEach-Object { $_.agent.toolOutputChars } | Measure-Object -Average).Average))
+        }
+    }
+
+    return $summaries
+}
+
 function New-AGTAAnalysisDataset {
     [CmdletBinding()]
     param(
-        [string] $RunsRoot = (Get-AGTAAnalysisDefaultRunsRoot),
+        [string[]] $RunsRoot = @((Get-AGTAAnalysisDefaultRunsRoot)),
 
         [string] $PricingPath
     )
 
-    $runs = @(Get-AGTARunRoots -RunsRoot $RunsRoot | ForEach-Object { ConvertTo-AGTARunSummary -RunRoot $_ -PricingPath $PricingPath })
-    $totalCost = @($runs | ForEach-Object { if ($null -ne $_.ai.estimatedCostUsd) { $_.ai.estimatedCostUsd } } | Measure-Object -Sum).Sum
+    $resolvedRunsRoots = @(Resolve-AGTARunsRootPaths -RunsRoot $RunsRoot)
+    $runRoots = @()
+    foreach ($root in $resolvedRunsRoots) {
+        $runRoots += @(Get-AGTARunRoots -RunsRoot $root)
+    }
+    $runRoots = @($runRoots | Sort-Object -Unique)
+    $runs = @($runRoots | ForEach-Object { ConvertTo-AGTARunSummary -RunRoot $_ -PricingPath $PricingPath })
+    $costValues = @($runs | ForEach-Object {
+        if ($null -ne $_.ai.estimatedCostUsd) { [double]$_.ai.estimatedCostUsd }
+    })
+    $totalCost = $null
+    if ($costValues.Count -gt 0) {
+        $totalCost = @($costValues | Measure-Object -Sum).Sum
+    }
 
     [pscustomobject][ordered]@{
         generatedAt = (Get-Date).ToString('o')
-        runsRoot = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($RunsRoot)
+        runsRoot = $resolvedRunsRoots
         pricingPath = $PricingPath
         summary = [pscustomobject][ordered]@{
             runCount = $runs.Count
@@ -710,8 +912,10 @@ function New-AGTAAnalysisDataset {
             totalTokens = [int](@($runs | ForEach-Object { $_.ai.totalTokens } | Measure-Object -Sum).Sum)
             totalCostUsd = $(if ($null -ne $totalCost) { [Math]::Round([double]$totalCost, 6) } else { $null })
             totalValidationRuns = [int](@($runs | ForEach-Object { $_.stages.validationRuns } | Measure-Object -Sum).Sum)
+            totalFailedValidationRuns = [int](@($runs | ForEach-Object { $_.stages.failedValidationRuns } | Measure-Object -Sum).Sum)
             totalToolOutputChars = [int](@($runs | ForEach-Object { $_.agent.toolOutputChars } | Measure-Object -Sum).Sum)
         }
+        modelSummaries = @(New-AGTAModelComparisonSummary -Runs $runs)
         runs = $runs
     }
 }
@@ -719,7 +923,7 @@ function New-AGTAAnalysisDataset {
 function New-AGTAAnalysisDashboard {
     [CmdletBinding()]
     param(
-        [string] $RunsRoot = (Get-AGTAAnalysisDefaultRunsRoot),
+        [string[]] $RunsRoot = @((Get-AGTAAnalysisDefaultRunsRoot)),
 
         [string] $OutputPath = (Join-Path -Path (Get-AGTAAnalysisRoot) -ChildPath ('analysis-output\dashboard_{0}.html' -f (Get-Date -Format 'yyyyMMdd_HHmmss'))),
 
@@ -738,12 +942,13 @@ function New-AGTAAnalysisDashboard {
 <style>
 :root { color-scheme: light; --bg:#f7f8fa; --panel:#fff; --text:#1f2933; --muted:#64748b; --line:#d9e2ec; --blue:#2563eb; --green:#059669; --red:#dc2626; --amber:#d97706; --ink:#0f172a; }
 body { margin:0; font-family:Segoe UI, Arial, sans-serif; background:var(--bg); color:var(--text); }
-header { padding:18px 24px; background:var(--ink); color:white; }
+header { background:var(--ink); color:white; }
+.header-inner { max-width:1440px; margin:0 auto; padding:18px clamp(24px, 4vw, 72px); box-sizing:border-box; }
 h1 { margin:0; font-size:22px; font-weight:600; }
-main { padding:18px 24px 32px; }
+main { max-width:1440px; margin:0 auto; padding:18px clamp(24px, 4vw, 72px) 32px; box-sizing:border-box; }
 .controls, .cards, .grid { display:grid; gap:12px; }
 .controls { grid-template-columns:repeat(5, minmax(140px, 1fr)); margin-bottom:14px; }
-.cards { grid-template-columns:repeat(7, minmax(120px, 1fr)); margin-bottom:14px; }
+.cards { grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); margin-bottom:14px; }
 .card, .panel { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:12px; }
 .label { color:var(--muted); font-size:12px; }
 .value { font-size:22px; font-weight:650; margin-top:4px; }
@@ -752,6 +957,7 @@ select, input { width:100%; box-sizing:border-box; padding:8px; border:1px solid
 .wide { grid-column:1 / -1; }
 h2 { margin:0 0 10px; font-size:15px; }
 svg { width:100%; height:260px; }
+.model-grid { margin-bottom:12px; }
 .bar { fill:var(--blue); }
 .bar.ok { fill:var(--green); }
 .bar.fail { fill:var(--red); }
@@ -759,6 +965,8 @@ svg { width:100%; height:260px; }
 .bar.exploration { fill:var(--amber); }
 .bar.development { fill:var(--green); }
 .bar.execution { fill:#7c3aed; }
+.line-path { fill:none; stroke:var(--blue); stroke-width:2.5; }
+.point { fill:white; stroke:var(--blue); stroke-width:2; }
 .axis { stroke:var(--line); stroke-width:1; }
 .tick, .empty, .axis-label, .legend { fill:var(--muted); font-size:11px; }
 .chart-label { fill:var(--muted); font-size:10px; }
@@ -768,11 +976,11 @@ th, td { border-bottom:1px solid var(--line); padding:8px; text-align:left; vert
 th { color:var(--muted); font-weight:600; cursor:pointer; }
 .status-ok { color:var(--green); font-weight:650; }
 .status-fail { color:var(--red); font-weight:650; }
-@media (max-width: 900px) { .controls, .cards, .grid { grid-template-columns:1fr; } }
+@media (max-width: 900px) { main, .header-inner { padding-left:16px; padding-right:16px; } .controls, .cards, .grid { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
-<header><h1>Automated GUI Testing Analysis</h1><div class="label" id="generatedAt"></div></header>
+<header><div class="header-inner"><h1>Automated GUI Testing Analysis</h1><div class="label" id="generatedAt"></div></div></header>
 <main>
   <section class="controls card">
     <label><span class="label">Provider</span><select id="providerFilter"></select></label>
@@ -783,12 +991,23 @@ th { color:var(--muted); font-weight:600; cursor:pointer; }
   </section>
   <section class="cards">
     <div class="card"><div class="label">Runs</div><div class="value" id="runCount">0</div></div>
+    <div class="card"><div class="label">Models</div><div class="value" id="modelCount">0</div></div>
     <div class="card"><div class="label">Success rate</div><div class="value" id="successRate">0%</div></div>
     <div class="card"><div class="label">Total authoring time</div><div class="value" id="totalDuration">0s</div></div>
     <div class="card"><div class="label">Validation runs</div><div class="value" id="validationRuns">0</div></div>
+    <div class="card"><div class="label">Failed validations</div><div class="value" id="failedValidationRuns">0</div></div>
     <div class="card"><div class="label">Total tokens</div><div class="value" id="totalTokens">0</div></div>
     <div class="card"><div class="label">Tool output</div><div class="value" id="toolOutput">0 B</div></div>
     <div class="card"><div class="label">Estimated cost</div><div class="value" id="totalCost">n/a</div></div>
+  </section>
+  <section class="grid model-grid">
+    <div class="panel"><h2>Average Stage Duration by Model</h2><svg id="modelStageChart"></svg></div>
+    <div class="panel"><h2>Average Overall Runtime by Model</h2><svg id="modelDurationChart"></svg></div>
+    <div class="panel"><h2>Average Generated Script Runtime by Model</h2><svg id="modelRuntimeChart"></svg></div>
+    <div class="panel"><h2>Average Token Use by Model</h2><svg id="modelTokenChart"></svg></div>
+    <div class="panel"><h2>Validation Executions by Model</h2><svg id="modelValidationChart"></svg></div>
+    <div class="panel"><h2>Average PoTATo Commands by Model</h2><svg id="modelCommandChart"></svg></div>
+    <div class="panel wide"><h2>Model Summary</h2><table id="modelTable"></table></div>
   </section>
   <section class="grid">
     <div class="panel wide"><h2>Stage Duration by Run</h2><svg id="stageChart"></svg></div>
@@ -809,6 +1028,7 @@ function fmtNum(n){ return Number(n||0).toLocaleString(); }
 function fmtCost(v){ return v === null || v === undefined ? 'n/a' : '$' + Number(v).toFixed(4); }
 function fmtBytes(n){ const v=Number(n||0); if(v<1024) return fmtNum(v)+' B'; if(v<1048576) return (v/1024).toFixed(1)+' KB'; return (v/1048576).toFixed(1)+' MB'; }
 function esc(value){ return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function runsRootLabel(value){ return Array.isArray(value) ? value.join('; ') : String(value || ''); }
 function compactLabel(value, maxLen){
   const source=String(value ?? '').trim();
   if(!source) return '';
@@ -817,6 +1037,10 @@ function compactLabel(value, maxLen){
   if(parts.length >= 2 && /^\d{8}$/.test(parts[0])) label=parts[1];
   if(label.length <= maxLen) return label;
   return label.slice(0, Math.max(1, maxLen - 3)) + '...';
+}
+function axisLeftPadding(label, minimum){
+  const text=String(label ?? '');
+  return Math.max(minimum || 48, Math.min(116, (text.length * 7) + 20));
 }
 function unique(values){ return [...new Set(values.filter(v => v !== null && v !== undefined && String(v).trim() !== ''))].sort(); }
 function optionize(select, values){ const current=select.value; select.innerHTML='<option value="">All</option>'+values.map(v=>`<option>${String(v)}</option>`).join(''); select.value=current; }
@@ -834,18 +1058,68 @@ function filteredRuns(){
   });
   return runs;
 }
+function modelLabel(run){
+  const provider=String(run.provider||'').trim();
+  const model=String(run.model||'').trim();
+  if(provider && model) return provider+' / '+model;
+  return model || provider || 'Unknown';
+}
+function avg(values){
+  const numbers=values.map(v=>Number(v||0)).filter(v=>Number.isFinite(v));
+  return numbers.length ? numbers.reduce((a,b)=>a+b,0)/numbers.length : 0;
+}
+function buildModelRows(runs){
+  const groups=new Map();
+  runs.forEach(r=>{
+    const label=modelLabel(r);
+    if(!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(r);
+  });
+  return [...groups.entries()].map(([label,items])=>{
+    const validationRuns=items.reduce((a,r)=>a+((r.stages&&r.stages.validationRuns)||0),0);
+    const failedValidationRuns=items.reduce((a,r)=>a+((r.stages&&r.stages.failedValidationRuns)||0),0);
+    const costValues=items.map(r=>r.ai&&r.ai.estimatedCostUsd).filter(v=>v!==null&&v!==undefined);
+    return {
+      label,
+      runCount:items.length,
+      succeeded:items.filter(r=>r.ok).length,
+      failed:items.filter(r=>!r.ok).length,
+      successRate:items.length ? 100*items.filter(r=>r.ok).length/items.length : 0,
+      averageAuthoringDurationMs:avg(items.map(r=>r.authoringDurationMs||0)),
+      averageGeneratedScriptRunDurationMs:avg(items.map(r=>(r.agent&&r.agent.generatedScriptRunDurationMs)||0)),
+      averagePlanningDurationMs:avg(items.map(r=>(r.stages&&r.stages.planningDurationMs)||0)),
+      averageExplorationDurationMs:avg(items.map(r=>(r.stages&&r.stages.explorationDurationMs)||0)),
+      averageDevelopmentIterationDurationMs:avg(items.map(r=>(r.stages&&r.stages.developmentIterationDurationMs)||0)),
+      validationRuns,
+      failedValidationRuns,
+      successfulValidationRuns:Math.max(0, validationRuns-failedValidationRuns),
+      averageValidationRuns:items.length ? validationRuns/items.length : 0,
+      totalTokens:items.reduce((a,r)=>a+((r.ai&&r.ai.totalTokens)||0),0),
+      averageTokens:avg(items.map(r=>(r.ai&&r.ai.totalTokens)||0)),
+      totalOutputTokens:items.reduce((a,r)=>a+((r.ai&&r.ai.outputTokens)||0),0),
+      totalReasoningTokens:items.reduce((a,r)=>a+((r.ai&&r.ai.reasoningTokens)||0),0),
+      averagePotatoCommands:avg(items.map(r=>(r.potato&&r.potato.commandCount)||0)),
+      averageDirectPotatoCommands:avg(items.map(r=>(r.agent&&r.agent.directPotatoCommandCount)||0)),
+      averageToolOutputChars:avg(items.map(r=>(r.agent&&r.agent.toolOutputChars)||0)),
+      totalCostUsd:costValues.length ? costValues.reduce((a,b)=>a+b,0) : null,
+      averageCostUsd:costValues.length ? costValues.reduce((a,b)=>a+b,0)/costValues.length : null
+    };
+  }).sort((a,b)=>b.averageAuthoringDurationMs-a.averageAuthoringDurationMs);
+}
 function drawBars(svgId, rows, valueFn, labelFn, clsFn, valueLabelFn){
   const svg=document.getElementById(svgId); svg.innerHTML='';
-  const w=Math.max(svg.clientWidth||520, 320), h=260, pad={left:42,right:18,top:24,bottom:58};
-  const baseY=h-pad.bottom, plotW=w-pad.left-pad.right, plotH=baseY-pad.top;
+  const w=Math.max(svg.clientWidth||520, 320), h=260;
   if(!rows.length){ svg.innerHTML='<text class="empty" x="16" y="32">No data</text>'; return; }
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
   const values=rows.map(r => Number(valueFn(r)||0));
   const actualMax=Math.max(0,...values);
   const max=Math.max(1,actualMax);
+  const formatValue=valueLabelFn || ((v) => fmtNum(v));
+  const maxLabel=actualMax > 0 ? formatValue(actualMax) : '0';
+  const pad={left:axisLeftPadding(maxLabel, 42),right:18,top:24,bottom:58};
+  const baseY=h-pad.bottom, plotW=w-pad.left-pad.right, plotH=baseY-pad.top;
   const gap=rows.length > 12 ? 3 : 8;
   const bw=Math.max(4,(plotW - gap*(rows.length-1))/rows.length);
-  const formatValue=valueLabelFn || ((v) => fmtNum(v));
   const rotateLabels=rows.length > 6;
   svg.insertAdjacentHTML('beforeend', `<line class="axis" x1="${pad.left}" y1="${baseY}" x2="${w-pad.right}" y2="${baseY}"></line>`);
   svg.insertAdjacentHTML('beforeend', `<line class="axis" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${baseY}"></line>`);
@@ -860,26 +1134,29 @@ function drawBars(svgId, rows, valueFn, labelFn, clsFn, valueLabelFn){
     svg.insertAdjacentHTML('beforeend', `<rect class="bar ${c}" x="${x}" y="${y}" width="${bw}" height="${bh}"><title>${esc(label)}: ${esc(valueText)}</title></rect>`);
     svg.insertAdjacentHTML('beforeend', `<text class="chart-value" x="${center}" y="${valueY}" text-anchor="middle">${esc(valueText)}</text>`);
     if(rotateLabels){
-      svg.insertAdjacentHTML('beforeend', `<text class="chart-label" transform="translate(${center},${baseY+36}) rotate(-35)" text-anchor="end"><title>${esc(label)}</title>${esc(compactLabel(label, 10))}</text>`);
+      svg.insertAdjacentHTML('beforeend', `<text class="chart-label" transform="translate(${center},${baseY+36}) rotate(-35)" text-anchor="end"><title>${esc(label)}</title>${esc(compactLabel(label, 18))}</text>`);
     } else {
-      svg.insertAdjacentHTML('beforeend', `<text class="chart-label" x="${center}" y="${baseY+19}" text-anchor="middle"><title>${esc(label)}</title>${esc(compactLabel(label, 16))}</text>`);
+      svg.insertAdjacentHTML('beforeend', `<text class="chart-label" x="${center}" y="${baseY+19}" text-anchor="middle"><title>${esc(label)}</title>${esc(compactLabel(label, 30))}</text>`);
     }
   });
 }
-function drawStackedBars(svgId, rows, segments, labelFn){
+function drawStackedBars(svgId, rows, segments, labelFn, valueLabelFn, options){
   const svg=document.getElementById(svgId); svg.innerHTML='';
-  const w=Math.max(svg.clientWidth||900, 420), h=280, pad={left:52,right:18,top:42,bottom:62};
-  const baseY=h-pad.bottom, plotW=w-pad.left-pad.right, plotH=baseY-pad.top;
+  const w=Math.max(svg.clientWidth||900, 420), h=280;
   if(!rows.length){ svg.innerHTML='<text class="empty" x="16" y="32">No data</text>'; return; }
   svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  const formatValue=valueLabelFn || fmtMs;
   const totals=rows.map(r => segments.reduce((a,s)=>a+Number(s.value(r)||0),0));
   const max=Math.max(1,...totals);
+  const pad={left:axisLeftPadding(formatValue(max), 52),right:18,top:42,bottom:62};
+  const baseY=h-pad.bottom, plotW=w-pad.left-pad.right, plotH=baseY-pad.top;
   const gap=rows.length > 12 ? 4 : 10;
   const bw=Math.max(8,(plotW - gap*(rows.length-1))/rows.length);
+  const showSegmentValues=options && options.segmentValues;
   svg.insertAdjacentHTML('beforeend', `<line class="axis" x1="${pad.left}" y1="${baseY}" x2="${w-pad.right}" y2="${baseY}"></line>`);
   svg.insertAdjacentHTML('beforeend', `<line class="axis" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${baseY}"></line>`);
   svg.insertAdjacentHTML('beforeend', `<text class="axis-label" x="${pad.left-8}" y="${baseY+4}" text-anchor="end">0</text>`);
-  svg.insertAdjacentHTML('beforeend', `<text class="axis-label" x="${pad.left-8}" y="${pad.top+4}" text-anchor="end">${esc(fmtMs(max))}</text>`);
+  svg.insertAdjacentHTML('beforeend', `<text class="axis-label" x="${pad.left-8}" y="${pad.top+4}" text-anchor="end">${esc(formatValue(max))}</text>`);
   let lx=pad.left;
   segments.forEach(s => { svg.insertAdjacentHTML('beforeend', `<rect class="bar ${s.cls}" x="${lx}" y="12" width="10" height="10"></rect><text class="legend" x="${lx+14}" y="21">${esc(s.label)}</text>`); lx += 106; });
   const rotateLabels=rows.length > 6;
@@ -890,11 +1167,52 @@ function drawStackedBars(svgId, rows, segments, labelFn){
       const v=Number(s.value(r)||0); total += v;
       if(v <= 0) return;
       const bh=Math.max(1,plotH*(v/max)); y -= bh;
-      svg.insertAdjacentHTML('beforeend', `<rect class="bar ${s.cls}" x="${x}" y="${y}" width="${bw}" height="${bh}"><title>${esc(labelFn(r))} ${esc(s.label)}: ${esc(fmtMs(v))}</title></rect>`);
+      const segmentText=formatValue(v);
+      svg.insertAdjacentHTML('beforeend', `<rect class="bar ${s.cls}" x="${x}" y="${y}" width="${bw}" height="${bh}"><title>${esc(labelFn(r))} ${esc(s.label)}: ${esc(segmentText)}</title></rect>`);
+      if(showSegmentValues){
+        const labelY=bh >= 18 ? y+(bh/2)+4 : Math.max(pad.top+12, y-4);
+        svg.insertAdjacentHTML('beforeend', `<text class="chart-value" x="${center}" y="${labelY}" text-anchor="middle">${esc(segmentText)}</text>`);
+      }
     });
-    if(total > 0){ svg.insertAdjacentHTML('beforeend', `<text class="chart-value" x="${center}" y="${Math.max(pad.top+14,y-6)}" text-anchor="middle">${esc(fmtMs(total))}</text>`); }
-    if(rotateLabels){ svg.insertAdjacentHTML('beforeend', `<text class="chart-label" transform="translate(${center},${baseY+38}) rotate(-35)" text-anchor="end"><title>${esc(labelFn(r))}</title>${esc(compactLabel(labelFn(r), 10))}</text>`); }
-    else { svg.insertAdjacentHTML('beforeend', `<text class="chart-label" x="${center}" y="${baseY+19}" text-anchor="middle"><title>${esc(labelFn(r))}</title>${esc(compactLabel(labelFn(r), 16))}</text>`); }
+    if(total > 0 && !showSegmentValues){ svg.insertAdjacentHTML('beforeend', `<text class="chart-value" x="${center}" y="${Math.max(pad.top+14,y-6)}" text-anchor="middle">${esc(formatValue(total))}</text>`); }
+    if(rotateLabels){ svg.insertAdjacentHTML('beforeend', `<text class="chart-label" transform="translate(${center},${baseY+38}) rotate(-35)" text-anchor="end"><title>${esc(labelFn(r))}</title>${esc(compactLabel(labelFn(r), 18))}</text>`); }
+    else { svg.insertAdjacentHTML('beforeend', `<text class="chart-label" x="${center}" y="${baseY+19}" text-anchor="middle"><title>${esc(labelFn(r))}</title>${esc(compactLabel(labelFn(r), 30))}</text>`); }
+  });
+}
+function drawLineChart(svgId, rows, valueFn, labelFn, valueLabelFn){
+  const svg=document.getElementById(svgId); svg.innerHTML='';
+  const w=Math.max(svg.clientWidth||520, 320), h=260;
+  if(!rows.length){ svg.innerHTML='<text class="empty" x="16" y="32">No data</text>'; return; }
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  const formatValue=valueLabelFn || fmtNum;
+  const values=rows.map(r=>Number(valueFn(r)||0));
+  const max=Math.max(1,...values);
+  const pad={left:axisLeftPadding(formatValue(max), 48),right:22,top:26,bottom:58};
+  const baseY=h-pad.bottom, plotW=w-pad.left-pad.right, plotH=baseY-pad.top;
+  const rotateLabels=rows.length > 6;
+  svg.insertAdjacentHTML('beforeend', `<line class="axis" x1="${pad.left}" y1="${baseY}" x2="${w-pad.right}" y2="${baseY}"></line>`);
+  svg.insertAdjacentHTML('beforeend', `<line class="axis" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${baseY}"></line>`);
+  svg.insertAdjacentHTML('beforeend', `<text class="axis-label" x="${pad.left-8}" y="${baseY+4}" text-anchor="end">0</text>`);
+  svg.insertAdjacentHTML('beforeend', `<text class="axis-label" x="${pad.left-8}" y="${pad.top+4}" text-anchor="end">${esc(formatValue(max))}</text>`);
+  const edgeGap=rows.length > 1 ? Math.min(96, Math.max(64, plotW/(rows.length*3))) : 0;
+  const usableW=Math.max(1, plotW-(edgeGap*2));
+  const points=rows.map((r,i)=>{
+    const x=pad.left+(rows.length===1 ? plotW/2 : edgeGap+(usableW*i/(rows.length-1)));
+    const value=Number(valueFn(r)||0);
+    const y=baseY-(plotH*(value/max));
+    return {x,y,value,label:String(labelFn(r) ?? '')};
+  });
+  svg.insertAdjacentHTML('beforeend', `<polyline class="line-path" points="${points.map(p=>`${p.x},${p.y}`).join(' ')}"></polyline>`);
+  points.forEach(p=>{
+    const valueText=formatValue(p.value);
+    const valueY=p.y < pad.top+13 ? p.y+18 : p.y-8;
+    svg.insertAdjacentHTML('beforeend', `<circle class="point" cx="${p.x}" cy="${p.y}" r="4"><title>${esc(p.label)}: ${esc(valueText)}</title></circle>`);
+    svg.insertAdjacentHTML('beforeend', `<text class="chart-value" x="${p.x}" y="${valueY}" text-anchor="middle">${esc(valueText)}</text>`);
+    if(rotateLabels){
+      svg.insertAdjacentHTML('beforeend', `<text class="chart-label" transform="translate(${p.x},${baseY+36}) rotate(-35)" text-anchor="end"><title>${esc(p.label)}</title>${esc(compactLabel(p.label, 18))}</text>`);
+    } else {
+      svg.insertAdjacentHTML('beforeend', `<text class="chart-label" x="${p.x}" y="${baseY+19}" text-anchor="middle"><title>${esc(p.label)}</title>${esc(compactLabel(p.label, 30))}</text>`);
+    }
   });
 }
 function drawCommandChart(runs){
@@ -902,6 +1220,33 @@ function drawCommandChart(runs){
   runs.forEach(r => Object.entries((r.potato&&r.potato.commandCounts)||{}).forEach(([k,v]) => counts[k]=(counts[k]||0)+v));
   const rows=Object.entries(counts).map(([command,count])=>({command,count})).sort((a,b)=>b.count-a.count).slice(0,18);
   drawBars('commandChart', rows, r=>r.count, r=>r.command);
+}
+function drawModelCharts(rows){
+  const top=rows.slice(0,30);
+  drawStackedBars('modelStageChart', top, [
+    {label:'Planning', cls:'planning', value:r=>r.averagePlanningDurationMs||0},
+    {label:'Exploration', cls:'exploration', value:r=>r.averageExplorationDurationMs||0},
+    {label:'Dev/Iteration', cls:'development', value:r=>r.averageDevelopmentIterationDurationMs||0}
+  ], r=>r.label, fmtMs, {segmentValues:true});
+  drawLineChart('modelDurationChart', top, r=>r.averageAuthoringDurationMs||0, r=>r.label, v=>fmtMs(v));
+  drawBars('modelRuntimeChart', top, r=>r.averageGeneratedScriptRunDurationMs||0, r=>r.label, null, v=>fmtMs(v));
+  drawBars('modelTokenChart', top, r=>r.averageTokens||0, r=>r.label, null, v=>fmtNum(Math.round(v)));
+  drawStackedBars('modelValidationChart', top, [
+    {label:'Successful validations', cls:'ok', value:r=>r.successfulValidationRuns||0},
+    {label:'Failed validations', cls:'fail', value:r=>r.failedValidationRuns||0}
+  ], r=>r.label, v=>fmtNum(Math.round(v)));
+  drawBars('modelCommandChart', top, r=>r.averagePotatoCommands||0, r=>r.label, null, v=>Number(v||0).toFixed(1));
+}
+function drawModelTable(rows){
+  const table=document.getElementById('modelTable');
+  table.innerHTML='<thead><tr><th>Model</th><th>Runs</th><th>Success</th><th>Avg Authoring</th><th>Avg Runtime</th><th>Validations</th><th>Avg Tokens</th><th>Avg PoTATo</th><th>Avg Direct CLI</th><th>Avg Output</th><th>Cost</th></tr></thead>';
+  const body=document.createElement('tbody');
+  rows.forEach(r=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(r.label)}</td><td>${fmtNum(r.runCount)}</td><td>${r.successRate.toFixed(0)}%<br><span class="label">${fmtNum(r.succeeded)} pass / ${fmtNum(r.failed)} fail</span></td><td>${fmtMs(r.averageAuthoringDurationMs)}</td><td>${fmtMs(r.averageGeneratedScriptRunDurationMs)}</td><td>${fmtNum(r.validationRuns)} total<br><span class="${r.failedValidationRuns?'status-fail':'label'}">${fmtNum(r.failedValidationRuns)} failed</span></td><td>${fmtNum(Math.round(r.averageTokens))}<br><span class="label">${fmtNum(r.totalTokens)} total</span></td><td>${Number(r.averagePotatoCommands||0).toFixed(1)}</td><td>${Number(r.averageDirectPotatoCommands||0).toFixed(1)}</td><td>${fmtBytes(r.averageToolOutputChars)}</td><td>${fmtCost(r.totalCostUsd)}<br><span class="label">avg ${fmtCost(r.averageCostUsd)}</span></td>`;
+    body.appendChild(tr);
+  });
+  table.appendChild(body);
 }
 function drawStatusChart(runs){
   const rows=[{label:'Success',count:runs.filter(r=>r.ok).length,ok:true},{label:'Failure',count:runs.filter(r=>!r.ok).length,ok:false}];
@@ -924,18 +1269,24 @@ function drawTable(runs){
 }
 function render(){
   const runs=filteredRuns();
+  const modelRows=buildModelRows(runs);
   const totalDuration=runs.reduce((a,r)=>a+(r.authoringDurationMs||0),0);
   const totalTokens=runs.reduce((a,r)=>a+((r.ai&&r.ai.totalTokens)||0),0);
   const totalValidationRuns=runs.reduce((a,r)=>a+((r.stages&&r.stages.validationRuns)||0),0);
+  const failedValidationRuns=runs.reduce((a,r)=>a+((r.stages&&r.stages.failedValidationRuns)||0),0);
   const totalToolOutput=runs.reduce((a,r)=>a+((r.agent&&r.agent.toolOutputChars)||0),0);
   const costs=runs.map(r=>r.ai&&r.ai.estimatedCostUsd).filter(v=>v!==null&&v!==undefined);
   document.getElementById('runCount').textContent=fmtNum(runs.length);
+  document.getElementById('modelCount').textContent=fmtNum(modelRows.length);
   document.getElementById('successRate').textContent=runs.length?Math.round(100*runs.filter(r=>r.ok).length/runs.length)+'%':'0%';
   document.getElementById('totalDuration').textContent=fmtMs(totalDuration);
   document.getElementById('validationRuns').textContent=fmtNum(totalValidationRuns);
+  document.getElementById('failedValidationRuns').textContent=fmtNum(failedValidationRuns);
   document.getElementById('totalTokens').textContent=fmtNum(totalTokens);
   document.getElementById('toolOutput').textContent=fmtBytes(totalToolOutput);
   document.getElementById('totalCost').textContent=costs.length?fmtCost(costs.reduce((a,b)=>a+b,0)):'n/a';
+  drawModelCharts(modelRows);
+  drawModelTable(modelRows);
   drawStageChart(runs);
   drawBars('durationChart', runs.slice(0,30), r=>r.authoringDurationMs||0, r=>r.runId||'run', r=>r.ok?'ok':'fail', v=>fmtMs(v));
   drawBars('tokenChart', runs.slice(0,30), r=>(r.ai&&r.ai.totalTokens)||0, r=>r.runId||'run');
@@ -946,7 +1297,7 @@ function render(){
   drawTable(runs);
 }
 function init(){
-  document.getElementById('generatedAt').textContent='Generated '+(DATASET.generatedAt||'')+' from '+(DATASET.runsRoot||'');
+  document.getElementById('generatedAt').textContent='Generated '+(DATASET.generatedAt||'')+' from '+runsRootLabel(DATASET.runsRoot);
   optionize(document.getElementById('providerFilter'), unique((DATASET.runs||[]).map(r=>r.provider)));
   optionize(document.getElementById('modelFilter'), unique((DATASET.runs||[]).map(r=>r.model)));
   ['providerFilter','modelFilter','statusFilter','searchFilter','sortSelect'].forEach(id=>document.getElementById(id).addEventListener('input', render));

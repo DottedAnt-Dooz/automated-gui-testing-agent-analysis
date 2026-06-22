@@ -11,6 +11,14 @@ cd C:\diplomamunka\automated-gui-testing-agent-analysis
 
 By default, the script reads runs from `..\automated-gui-testing-agent-framework\runs`. The output is written under `analysis-output\` in this folder. It can be opened directly in a browser and does not require a web server or JavaScript packages.
 
+To compare copied session bundles such as `fullrun2`, `fullrun3`, and `fullrun4`, pass each folder as a run root:
+
+```powershell
+.\Invoke-BuildAnalysisDashboard.ps1 -RunsRoot C:\diplomamunka\fullrun2,C:\diplomamunka\fullrun3,C:\diplomamunka\fullrun4 -Open
+```
+
+The dashboard discovers direct run folders and nested `runs\<runId>` folders inside each supplied root. Pointing `-RunsRoot` at `C:\diplomamunka` is still useful for broad discovery, but it may include older or mock runs.
+
 ## Captured Metrics
 
 The framework writes `logs\metrics.jsonl` in each run folder. Events currently include:
@@ -41,6 +49,21 @@ When session-based agents such as Codex are used, copy the raw `rollout-*.jsonl`
 - cumulative token usage when present.
 
 The stage chart is heuristic for session-agent rollouts because those logs do not explicitly mark framework stages. API authoring runs should prefer explicit `authoring_stage` events.
+
+## Model Comparison
+
+The dashboard includes a model comparison section above the per-run charts. It groups visible runs by provider and model, then shows:
+
+- average Planning / Exploration / Development-Iteration duration,
+- average overall runtime as a line chart and generated script runtime,
+- average and total token use,
+- total validation executions split into successful and failed executions,
+- average final PoTATo command count,
+- average direct CLI exploration commands,
+- average tool output volume,
+- run count, success rate, and estimated cost when pricing data is available.
+
+The Provider, Model, Status, Search, and Sort controls still apply. Leave the Model filter on `All` when comparing models against each other.
 
 ## Cost Estimates
 
