@@ -1,0 +1,16 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+ param(
+     [string]$TestCasePath = "C:\Users\testuser\Desktop\Microsoft Word.csv",
+-    [string]$OutputRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) "artifacts\word-gui-test"),
++    [string]$OutputRoot,
+@@
+ Set-StrictMode -Version Latest
+ $ErrorActionPreference = "Stop"
++
++if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
++    $scriptDirectory = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
++    $OutputRoot = Join-Path (Split-Path -Parent $scriptDirectory) "artifacts\word-gui-test"
++}
+*** End Patch

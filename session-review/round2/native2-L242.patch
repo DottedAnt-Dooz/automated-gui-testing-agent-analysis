@@ -1,0 +1,32 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+ function Invoke-Element {
+     param([System.Windows.Automation.AutomationElement]$Element)
+@@
+     Start-Sleep -Milliseconds 750
+ }
+ 
++function Click-Element {
++    param([System.Windows.Automation.AutomationElement]$Element)
++    $rect = $Element.Current.BoundingRectangle
++    if ($rect.IsEmpty) { throw "Element '$($Element.Current.Name)' has no clickable bounding rectangle." }
++    Click-Point -X ([int]($rect.Left + ($rect.Width / 2))) -Y ([int]($rect.Top + ($rect.Height / 2)))
++    Start-Sleep -Milliseconds 750
++}
++
+ function Click-Point {
+@@
+-    $saveAs = Find-Element -Root $window -Name "Save As" -Partial -Timeout 10
+-    Invoke-Element $saveAs
++    $saveAs = Find-Element -Root $window -Name "Save As" -Partial -Timeout 10
++    Click-Element $saveAs
+     $browse = Find-Element -Root $window -Name "Browse" -Partial -Timeout 10
+-    Invoke-Element $browse
++    Click-Element $browse
+@@
+-    $print = Find-Element -Root $window -Name "Print" -Partial -Timeout 10
+-    Invoke-Element $print
++    $print = Find-Element -Root $window -Name "Print" -Partial -Timeout 10
++    Click-Element $print
+*** End Patch

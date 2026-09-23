@@ -1,0 +1,8 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+     Select-PrinterIfAvailable -Root $window | Out-Null
+     $printButton = Find-Element -Root $window -Name "Print" -ControlType ([System.Windows.Automation.ControlType]::Button) -Timeout 10
+-    Invoke-Element $printButton
++    Click-Element $printButton
+*** End Patch

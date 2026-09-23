@@ -1,0 +1,17 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+ function Wait-ForDialog {
+     param([string]$TitleLike)
+     Wait-Until -Description "dialog '$TitleLike'" -Condition {
+         $root = Get-RootElement
+-        $children = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+-        foreach ($child in $children) {
+-            if ($child.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window -and $child.Current.Name -like "*$TitleLike*") {
++        $items = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
++        foreach ($child in $items) {
++            if ($child.Current.Name -like "*$TitleLike*" -and $child.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window) {
+                 return $child
+             }
+         }
+*** End Patch

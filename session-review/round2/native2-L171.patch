@@ -1,0 +1,15 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+-        if ($window) { return $window }
+-        $children = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+-        foreach ($child in $children) {
+-            if ($child.Current.Name -like "*Word*" -and $child.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window) {
+-                return $child
+-            }
+-        }
+-        return $null
++        return $window
+     }
+ }
+*** End Patch

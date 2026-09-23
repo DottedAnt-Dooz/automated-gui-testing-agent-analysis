@@ -1,0 +1,225 @@
+L10 2026-09-23T12:14:14.770Z SAY I’ll inspect the framework in the workspace and the CSV testcase first, then I’ll shape the Word test script to match the project’s existing conventions.
+
+L11 2026-09-23T12:14:14.772Z shell_command Get-ChildItem -Force
+
+L12 2026-09-23T12:14:14.777Z shell_command rg --files
+
+L13 2026-09-23T12:14:14.784Z shell_command Get-Content -Raw -LiteralPath 'C:\Users\testuser\Desktop\Microsoft Word.csv'
+
+L20 2026-09-23T12:14:26.126Z SAY I found a compact five-step CSV: open Word, create/save/reopen, then print. I’m reading the framework contract and its Paint reference now so the generated script plugs into the same runner cleanly.
+
+L21 2026-09-23T12:14:26.158Z shell_command Get-Content -Raw -LiteralPath 'C:\diplomamunka\automated-gui-testing-agent-framework\README.md'
+
+L22 2026-09-23T12:14:26.204Z shell_command Get-Content -Raw -LiteralPath 'C:\diplomamunka\automated-gui-testing-agent-framework\docs\GENERATED_SCRIPT_CONTRACT.md'
+
+L23 2026-09-23T12:14:26.218Z shell_command Get-Content -Raw -LiteralPath 'C:\diplomamunka\automated-gui-testing-agent-framework\templates\GeneratedScript.Template.ps1'
+
+L24 2026-09-23T12:14:26.238Z shell_command Get-Content -Raw -LiteralPath 'C:\diplomamunka\automated-gui-testing-agent-framework\examples\MicrosoftPaint.Reference.ps1'
+
+L25 2026-09-23T12:14:26.261Z shell_command Get-Content -Raw -LiteralPath 'C:\diplomamunka\automated-gui-testing-agent-framework\Framework\GeneratedScriptRuntime.ps1'
+
+L34 2026-09-23T12:14:40.083Z SAY The script contract wants a generated PowerShell file that dot-sources the shared runtime, records one result per CSV row, keeps evidence under the run folder, and uses PoTATo commands for GUI actions. I’m checking the available PoTATo command surface before writing the Word-specific flow.
+
+L35 2026-09-23T12:14:40.085Z shell_command Get-Content -Raw -LiteralPath 'C:\diplomamunka\automated-gui-testing-agent-framework\AGENTS.md'
+
+L36 2026-09-23T12:14:40.089Z shell_command Get-Content -Raw -LiteralPath 'C:\diplomamunka\potato-cli\commands.json'
+
+L37 2026-09-23T12:14:40.092Z shell_command Get-Content -Raw -LiteralPath 'C:\diplomamunka\potato-cli\README.md'
+
+L38 2026-09-23T12:14:40.092Z shell_command Get-Content -Raw -LiteralPath 'C:\diplomamunka\potato-cli\PoTAToCli\PoTAToCli.psm1'
+
+L46 2026-09-23T12:14:46.510Z SAY I’ve got the required stages: plan, explore, then generate and run/iterate. Next I’m creating a run folder and using PoTATo against Word itself to learn the actual selectors and dialogs on this machine.
+
+L47 2026-09-23T12:14:48.219Z shell_command Import-Module 'C:\diplomamunka\automated-gui-testing-agent-framework\Framework\AutomatedGuiTestingAgentFramework.psm1' -Force; New-AGTARunDirectory -TestCaseCsv 'C:\Users\testuser\Desktop\Microsoft Word.csv'
+
+L52 2026-09-23T12:14:52.338Z SAY The run folder is in place under the framework’s `runs` directory, with input/generated/evidence/logs/results subfolders. I’m going to drive a small exploratory Word session now, keeping it sequential so the selectors we use are grounded in the live UI.
+
+L53 2026-09-23T12:14:53.597Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' state -Clear
+
+L57 2026-09-23T12:14:58.742Z SAY I’m clearing PoTATo’s working state, then starting Word maximized and observing just enough of the UI tree to identify the “blank document” and document canvas paths.
+
+L58 2026-09-23T12:15:00.290Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' start -ProcessName winword.exe -WaitForWindowMs 30000 -Maximize
+
+L62 2026-09-23T12:15:09.963Z SAY Word first exposed its splash window, which is normal. I’m waiting/focusing the real Word window and checking whether the start screen or an existing document opens.
+
+L63 2026-09-23T12:15:12.132Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' focus -ProcessName WINWORD -WindowTitle '*Word*' -Maximize -TimeoutMs 30000
+
+L66 2026-09-23T12:15:18.490Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' observe -Depth 3 -MaxElements 220
+
+L71 2026-09-23T12:15:26.071Z SAY The broad observe hit a UI Automation value-conversion issue inside Word’s tree, so I’ll avoid relying on broad tree dumps for Word. I’m switching to targeted selectors and screenshots, which should be less brittle.
+
+L72 2026-09-23T12:15:27.588Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' select -Name 'Blank document' -ControlType Button -FindFirst -TimeoutMs 10000
+
+L76 2026-09-23T12:15:46.456Z SAY This Word instance didn’t expose “Blank document” as a visible button, so I’m checking windows and taking a screenshot to see the current surface before choosing the least fragile route.
+
+L77 2026-09-23T12:15:46.456Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' windows -ProcessName WINWORD -TimeoutMs 3000
+
+L78 2026-09-23T12:15:47.427Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' screenshot -OutFile 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\evidence\exploration-word-current.png'
+
+L83 2026-09-23T12:15:53.176Z SAY I captured the current Word screen as exploration evidence. I’m going to inspect it visually so I can tell whether Word is stuck at an account/privacy screen, a blank shell, or an existing document view.
+
+L84 2026-09-23T12:15:54.435Z view_image {'path': 'C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\exploration-word-current.png', 'detail': 'high'}
+
+L89 2026-09-23T12:15:57.745Z SAY The start screen is visible and “Blank document” is prominent. I’m clicking that, then I’ll probe the document editing surface and save/print dialogs.
+
+L90 2026-09-23T12:15:59.323Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' click -Name 'Blank document' -ControlType ListItem -FindFirst -TimeoutMs 8000 -Method Mouse
+
+L93 2026-09-23T12:16:10.103Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' wait-element -ControlType Document -FindFirst -TimeoutMs 15000
+
+L97 2026-09-23T12:16:18.014Z SAY The blank document becomes a `Document` control named `Document1`, so that gives us a real assertion for the create step. I’m testing text entry, file-save behavior, and whether PDF printing can be driven through visible dialogs.
+
+L98 2026-09-23T12:16:19.966Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' type -Text 'Word GUI automation test document`r`nCreated by PoTATo on 2026-09-23.' -ControlType Document -FindFirst -TimeoutMs 5000 -Focus
+
+L102 2026-09-23T12:16:32.865Z SAY Text entry through the document control works. Now I’m using the standard Save As dialog path; Word’s backstage UI can be variable, so the generated script will prefer visible selectors and reserve hotkeys for Save/Print commands where Office exposes them most consistently.
+
+L103 2026-09-23T12:16:34.204Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' hotkey -Keys '^s' -Focus
+
+L106 2026-09-23T12:16:42.562Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' screenshot -OutFile 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\evidence\exploration-save-after-ctrls.png'
+
+L110 2026-09-23T12:16:47.679Z SAY I’m checking the save screen visually because Office Save As sometimes lands in Backstage rather than the common file dialog. That difference affects how deterministic the script can be.
+
+L111 2026-09-23T12:16:48.945Z view_image {'path': 'C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\exploration-save-after-ctrls.png', 'detail': 'high'}
+
+L116 2026-09-23T12:16:52.195Z SAY Save landed in Word Backstage, and “Browse” is visible. I’ll use that selector to open the common Save As dialog, which then allows typing a unique run-folder path and waiting for the file.
+
+L117 2026-09-23T12:16:53.809Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' click -Name 'Browse' -ControlType ListItem -FindFirst -TimeoutMs 5000 -Method Mouse
+
+L121 2026-09-23T12:17:06.116Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' select -Name 'Browse' -FindFirst -TimeoutMs 5000
+
+L124 2026-09-23T12:17:13.614Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' click -Name 'Browse' -ControlType Button -FindFirst -TimeoutMs 5000 -Method Invoke
+
+L128 2026-09-23T12:17:19.315Z SAY The Browse control is a `Button`, not a list item. I’ve confirmed `InvokePattern` opens it, and next I’m probing the dialog controls for filename/save selectors.
+
+L129 2026-09-23T12:17:20.857Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' wait-element -Name 'Save As' -ControlType Window -FindFirst -TimeoutMs 10000
+
+L132 2026-09-23T12:17:26.900Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' select -Name 'File name:' -FindFirst -TimeoutMs 3000
+
+L136 2026-09-23T12:17:32.167Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' select -AutomationId '1001' -ControlType Edit -FindFirst -TimeoutMs 3000
+
+L140 2026-09-23T12:17:41.128Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' select -ControlType Edit -MaxResults 20 -TimeoutMs 3000
+
+L145 2026-09-23T12:17:48.985Z SAY The Save As dialog itself is visible, but broad selector queries inside it hit the same Word UIA conversion bug. The filename box is focused by default, so I’m checking that direct typing plus the Save button works; the generated script can use that deterministic dialog behavior with a file wait as the assertion.
+
+L146 2026-09-23T12:17:51.465Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' type -Text 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\evidence\WordGuiTestDocument-explore.docx' -Focus -PreDelete -ClearMethod Shortcut
+
+L150 2026-09-23T12:18:01.850Z SAY Direct typing into the focused filename field works. I’m saving and waiting for the `.docx` so the script can prove the save step with a real file condition.
+
+L151 2026-09-23T12:18:03.417Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' click -Name 'Save' -ControlType Button -FindFirst -TimeoutMs 5000 -Method Invoke
+
+L155 2026-09-23T12:18:13.646Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' hotkey -Keys '{ENTER}' -Focus
+
+L158 2026-09-23T12:18:19.512Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' wait-file -Path 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\evidence\WordGuiTestDocument-explore.docx' -TimeoutMs 20000 -MinBytes 1 -StableMs 500
+
+L163 2026-09-23T12:18:25.364Z SAY Save is proven by `wait-file`. For “Open Created Document,” I’m going through Word’s Open UI rather than launching the file directly, since the testcase is about Word GUI behavior.
+
+L164 2026-09-23T12:18:26.731Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' hotkey -Keys '^w' -Focus
+
+L168 2026-09-23T12:18:31.357Z SAY The document close command returned cleanly. I’m opening the Word Open screen and using Browse to choose the saved test document from its exact path.
+
+L169 2026-09-23T12:18:32.721Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' hotkey -Keys '^o' -Focus
+
+L172 2026-09-23T12:18:38.479Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' screenshot -OutFile 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\evidence\exploration-open-after-ctrlo.png'
+
+L175 2026-09-23T12:18:44.093Z view_image {'path': 'C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\exploration-open-after-ctrlo.png', 'detail': 'high'}
+
+L180 2026-09-23T12:18:47.355Z SAY The Open screen exposes Browse as the same button pattern, which is good news. I’m testing the common Open dialog route now.
+
+L181 2026-09-23T12:18:49.177Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' click -Name 'Browse' -ControlType Button -FindFirst -TimeoutMs 5000 -Method Invoke
+
+L184 2026-09-23T12:18:55.554Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' wait-element -Name 'Open' -ControlType Window -FindFirst -TimeoutMs 10000
+
+L188 2026-09-23T12:19:01.397Z SAY The Open dialog is reachable. I’m entering the saved `.docx` path into its focused filename field and confirming with Enter, then I’ll assert the document control/title reappears.
+
+L189 2026-09-23T12:19:03.880Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' type -Text 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\evidence\WordGuiTestDocument-explore.docx' -Focus -PreDelete -ClearMethod Shortcut
+
+L192 2026-09-23T12:19:15.658Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' hotkey -Keys '{ENTER}' -Focus
+
+L197 2026-09-23T12:20:18.762Z SAY The Enter command appears to have outlived my shell timeout, which can happen while Word is busy opening a file. I’m checking the foreground state now rather than retrying blindly.
+
+L198 2026-09-23T12:20:18.763Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' windows -ProcessName WINWORD -TimeoutMs 3000
+
+L199 2026-09-23T12:20:18.848Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' screenshot -OutFile 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\evidence\exploration-after-open-enter-timeout.png'
+
+L205 2026-09-23T12:20:26.451Z SAY The document did open: the top-level title is `WordGuiTestDocument-explore - Word`. I briefly queried windows and screenshot together and hit a PoTATo log write contention, so I’ll keep the rest strictly sequential.
+
+L206 2026-09-23T12:20:27.809Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' hotkey -Keys '^p' -Focus
+
+L210 2026-09-23T12:20:33.424Z SAY For printing, I’m testing Word’s Print screen. The generated script will choose Microsoft Print to PDF when available so the “printed” result can be asserted as a real PDF file instead of just a clicked button.
+
+L211 2026-09-23T12:20:35.664Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' screenshot -OutFile 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\evidence\exploration-print-screen.png'
+
+L215 2026-09-23T12:20:41.788Z SAY I’m inspecting the print screen screenshot to see the printer dropdown and Print button names exactly as Word exposes them here.
+
+L216 2026-09-23T12:20:43.002Z view_image {'path': 'C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\exploration-print-screen.png', 'detail': 'high'}
+
+L221 2026-09-23T12:20:46.477Z SAY Microsoft Print to PDF is already selected on this VM, and the Print button is visible. I’m clicking it and saving the PDF to the run evidence folder.
+
+L222 2026-09-23T12:20:48.072Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' click -Name 'Print' -ControlType Button -FindFirst -TimeoutMs 5000 -Method Invoke
+
+L225 2026-09-23T12:20:58.061Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' wait-element -Name 'Save Print Output As' -ControlType Window -FindFirst -TimeoutMs 15000
+
+L228 2026-09-23T12:21:06.028Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' type -Text 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\evidence\WordGuiTestDocument-explore.pdf' -Focus -PreDelete -ClearMethod Shortcut
+
+L231 2026-09-23T12:21:17.178Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' hotkey -Keys '{ENTER}' -Focus
+
+L234 2026-09-23T12:21:23.058Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' wait-file -Path 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\evidence\WordGuiTestDocument-explore.pdf' -TimeoutMs 20000 -MinBytes 1 -StableMs 500
+
+L239 2026-09-23T12:21:27.539Z SAY Printing to PDF is confirmed and gives us a real file assertion. I’m closing the exploratory Word window before generating the reusable script.
+
+L240 2026-09-23T12:21:28.918Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\potato-cli\potato.ps1' close-window -ProcessName WINWORD -TimeoutMs 3000
+
+L244 2026-09-23T12:21:43.106Z shell_command Get-ChildItem -Recurse -Force -LiteralPath 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd' | Select-Object FullName,Length
+
+L245 2026-09-23T12:21:43.149Z shell_command Get-Content -Raw -LiteralPath 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\run.json'
+
+L250 2026-09-23T12:22:01.104Z SAY I’ve completed the exploration stage. The reusable script will use: Blank document as a `ListItem`, document control assertions, Backstage Browse buttons for Save/Open, focused filename fields in common dialogs, and Microsoft Print to PDF with a PDF wait-file assertion.
+
+L251 2026-09-23T12:22:02.804Z shell_command Get-ChildItem -Force -LiteralPath 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\input' | Format-List FullName,Name,Length
+
+L256 2026-09-23T12:22:36.114Z SAY I’m writing the generated PowerShell script now into the run’s `generated` folder. I’ll keep the shared runtime untouched and put only Word-specific actions, selectors, and assertions in the script.
+
+L257 2026-09-23T12:23:38.170Z PATCH *** Begin Patch
+*** Add File: C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5
+
+L263 2026-09-23T12:23:50.899Z SAY The generated script is in place. I’m doing a static parse/path check first, then I’ll run it once through the framework runtime and iterate on any live Word-specific failures.
+
+L264 2026-09-23T12:23:50.901Z shell_command $errors=$null; [System.Management.Automation.Language.Parser]::ParseFile('C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\generated\MicrosoftWord.Generated.ps1',[ref]$null,[ref]$errors) | Out-Null; if ($errors) { $errors | Format-List *; exit 1 } else { 'Parse OK' }
+
+L265 2026-09-23T12:23:50.906Z shell_command Test-Path -LiteralPath 'C:\diplomamunka\potato-cli\potato.ps1'; Test-Path -LiteralPath 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\input\Microsoft Word.csv'; Test-Path -LiteralPath 'C:\diplomamunka\automated-gui-testing-agent-framework\Framework\GeneratedScriptRuntime.ps1'
+
+L270 2026-09-23T12:23:56.361Z SAY Static validation passed: the script parses, and the runtime, CSV, and PoTATo paths all resolve. I’m starting the full generated-script run now; Word/print dialogs can take a bit.
+
+L271 2026-09-23T12:24:00.898Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\generated\MicrosoftWord.Generated.ps1' -PotatoCliPath 'C:\diplomamunka\potato-cli\potato.ps1' -TestCaseCsv 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\input\Microsoft Word.csv' -RunRoot 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd' -FrameworkRoot 'C:\diplomamunka\automated-gui-testing-agent-framework'
+
+L276 2026-09-23T12:26:08.318Z SAY The first generated run exercised the flow, and two implementation details need tightening: the saved DOCX is still held open by Word when I inspect its magic bytes, and the printer selector is too strict even though the Print screen itself is usable. I’m patching those assertions to match what the live run showed.
+
+L277 2026-09-23T12:26:09.445Z view_image {'path': 'C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052403_2947\\step-5-failure.png', 'detail': 'high'}
+
+L282 2026-09-23T12:26:16.964Z SAY The failure screenshot confirms Microsoft Print to PDF is visible, but UI Automation doesn’t expose that dropdown text to PoTATo’s selector search. I’m changing the pre-print assertion to the visible Print button and letting the PDF save dialog plus PDF file signature prove the actual print output.
+
+L283 2026-09-23T12:26:21.886Z PATCH *** Begin Patch
+*** Update File: C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb
+
+L289 2026-09-23T12:26:27.942Z SAY Those patches are small and targeted. I’m parsing again, then running the script once more to confirm the end-to-end result JSON goes green.
+
+L290 2026-09-23T12:26:30.576Z shell_command $errors=$null; [System.Management.Automation.Language.Parser]::ParseFile('C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\generated\MicrosoftWord.Generated.ps1',[ref]$null,[ref]$errors) | Out-Null; if ($errors) { $errors | Format-List *; exit 1 } else { 'Parse OK' }
+
+L294 2026-09-23T12:26:34.904Z SAY The script still parses cleanly. I’m starting the confirmation run now.
+
+L295 2026-09-23T12:26:41.149Z shell_command powershell.exe -NoProfile -ExecutionPolicy Bypass -File 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\generated\MicrosoftWord.Generated.ps1' -PotatoCliPath 'C:\diplomamunka\potato-cli\potato.ps1' -TestCaseCsv 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\input\Microsoft Word.csv' -RunRoot 'C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd' -FrameworkRoot 'C:\diplomamunka\automated-gui-testing-agent-framework'
+
+L300 2026-09-23T12:30:00.151Z SAY Done. I created and validated the Microsoft Word GUI test script here:
+
+[MicrosoftWord.Generated.ps1](C:/diplomamunka/automated-gui-testing-agent-framework/runs/20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd/generated/MicrosoftWord.Generated.ps1)
+
+It follows the framework contract: dot-sources `GeneratedScriptRuntime.ps1`, maps all 5 CSV rows to recorded steps, uses PoTATo GUI actions, writes compact JSON results, captures evidence, and cleans up Word afterward.
+
+Validation passed end-to-end:
+
+- Result JSON: [result.json](C:/diplomamunka/automated-gui-testing-agent-framework/runs/20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd/results/result.json)
+- Final status: `ok: true`
+- Summary: `5 passed, 0 failed, 0 skipped`
+- Evidence folder: [evidence](C:/diplomamunka/automated-gui-testing-agent-framework/runs/20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd/evidence/20260923_052643_6724)
+- Command log: [potato-commands-20260923_052643_6724.jsonl](C:/diplomamunka/automated-gui-testing-agent-framework/runs/20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd/logs/potato-commands-20260923_052643_6724.jsonl)
+
+The script creates a Word document, saves it as `.docx`, reopens it through Word’s Open UI, prints through Microsoft Print to PDF, and asserts both the saved DOCX and printed PDF files.

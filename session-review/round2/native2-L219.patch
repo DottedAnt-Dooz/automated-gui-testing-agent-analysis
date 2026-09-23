@@ -1,0 +1,6 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+-    [NativeInput]::SendInput(2, @($down, $up), [Runtime.InteropServices.Marshal]::SizeOf([NativeInput+INPUT])) | Out-Null
++    [NativeInput]::SendInput(2, @($down, $up), [Runtime.InteropServices.Marshal]::SizeOf($down)) | Out-Null
+*** End Patch

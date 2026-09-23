@@ -1,0 +1,454 @@
+L10 2026-09-23T12:34:32.757Z SAY I’ll inspect the CSV test case first, then I’ll build the GUI automation around the actual steps instead of guessing. I’ll keep the script self-contained in PowerShell/.NET/Windows APIs and include verification, evidence, and cleanup hooks.
+
+L11 2026-09-23T12:34:34.240Z shell_command Get-Content -LiteralPath 'C:\Users\testuser\.codex\plugins\cache\openai-primary-runtime\spreadsheets\26.630.12135\skills\spreadsheets\SKILL.md' -Raw
+
+L15 2026-09-23T12:34:40.916Z shell_command Import-Csv -LiteralPath 'C:\Users\testuser\Desktop\Microsoft Word.csv' | Format-List *
+
+L16 2026-09-23T12:34:40.917Z shell_command Get-ChildItem -Force | Select-Object Mode,Length,LastWriteTime,Name | Format-Table -AutoSize
+
+L17 2026-09-23T12:34:40.917Z shell_command Get-Content -LiteralPath 'C:\Users\testuser\Desktop\Microsoft Word.csv' -Raw
+
+L24 2026-09-23T12:34:56.581Z SAY The CSV is pleasantly terse: five Word GUI steps ending with print verification. I’m going to make the script data-driven from that CSV, but still implement the concrete Word interactions so it can be rerun and leave a trail of screenshots/logs.
+
+L25 2026-09-23T12:34:56.589Z shell_command $cmd = Get-Command winword.exe -ErrorAction SilentlyContinue; if ($cmd) { $cmd.Source } else { 'WINWORD_NOT_FOUND' }
+
+L26 2026-09-23T12:34:56.606Z shell_command Get-ChildItem -Path 'C:\Program Files','C:\Program Files (x86)' -Recurse -Filter WINWORD.EXE -ErrorAction SilentlyContinue | Select-Object -First 5 -ExpandProperty FullName
+
+L27 2026-09-23T12:34:56.610Z shell_command git status --short
+
+L34 2026-09-23T12:35:14.038Z SAY Word is installed under Office16, but it is not on PATH, so the script will resolve it from the standard Office install locations. I’m going to put the automation in `scripts/Invoke-WordGuiTest.ps1` with a timestamped evidence folder under `artifacts/word-gui-test/`.
+
+L35 2026-09-23T12:35:15.484Z shell_command Start-Process -FilePath 'C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE' -ArgumentList '/q' -PassThru | Select-Object Id,ProcessName,MainWindowTitle
+
+L39 2026-09-23T12:35:20.736Z shell_command Start-Sleep -Seconds 3; Get-Process WINWORD | Select-Object Id,MainWindowHandle,MainWindowTitle
+
+L44 2026-09-23T12:35:30.461Z SAY I’ve got a live Word window now, so I’m doing a quick accessibility-tree reconnaissance. That tells the script which real visible controls Word exposes on this machine, which is much better than hard-coding a fantasy ribbon.
+
+L45 2026-09-23T12:35:35.403Z shell_command @'
+Add-Type -AssemblyName UIAutomationClient
+$root=[System.Windows.Automation.AutomationElement]::RootElement
+$word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp'))
+if(!$word){'no word'; exit}
+function Walk($el,$depth){ if($depth -gt 3){return}; $name=$el.Current.Name; $ct=$el.Current.ControlType.ProgrammaticName; $aid=$el.Current.AutomationId; $cls=$el.Current.ClassName; if($name -or $aid){ '{0}{1} | {2} | aid={3} cls={4}' -f ('  '*$depth),$name,$ct,$aid,$cls }; $kids=$el.FindAll([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.Condition]::TrueCondition); foreach($k in $kids){ Walk $k ($depth+1) }}
+Walk $word 0
+'@ | powershell -NoProfile -ExecutionPolicy Bypass -
+
+L50 2026-09-23T12:35:41.923Z SAY This Word starts on the backstage/start screen rather than directly in a blank document. I’m folding that into the script so “Open Word” explicitly verifies the window and “Create Test Document” clicks the visible blank document tile.
+
+L51 2026-09-23T12:35:46.517Z shell_command @'
+Add-Type -AssemblyName UIAutomationClient
+$root=[System.Windows.Automation.AutomationElement]::RootElement
+$word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp'))
+$all=$word.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+$i=0
+foreach($el in $all){ $name=$el.Current.Name; $ct=$el.Current.ControlType.ProgrammaticName; $aid=$el.Current.AutomationId; if($name -match 'Blank|New|Open|Document|Create|Recent|Home|Save|Print|Browse|File') { '{0} | {1} | {2} | aid={3} | enabled={4}' -f $i,$name,$ct,$aid,$el.Current.IsEnabled }; $i++ }
+'@ | powershell -NoProfile -ExecutionPolicy Bypass -
+
+L56 2026-09-23T12:35:51.304Z SAY I found the accessible `Blank document` control. Next I’ll create the PowerShell script with reusable UI Automation helpers, screenshot capture, step logging, and conservative cleanup, then run it once to shake out machine-specific Word prompts.
+
+L57 2026-09-23T12:37:22.706Z PATCH *** Begin Patch
+*** Add File: scripts/Invoke-WordGuiTest.ps1
++[CmdletBinding()]
++param(
++    [string]$TestCasePath = "C:\Users\tes
+
+L63 2026-09-23T12:37:29.607Z SAY The first version is in place. I noticed one fallback still used a select-all chord inside a dialog, so I’m going to remove that shortcut path before the test run; the script should stay honest about the “no keyboard shortcuts” rule.
+
+L64 2026-09-23T12:37:31.181Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+     catch {
+         $rect = $edit.Current.BoundingRectangle
+ 
+
+L70 2026-09-23T12:37:35.675Z SAY Now I’m running the script against the actual desktop Word install. If Word exposes a different button name than expected, I’ll capture the failure evidence and tighten the locator rather than papering over it.
+
+L71 2026-09-23T12:37:37.776Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L76 2026-09-23T12:38:00.057Z SAY The first run failed before touching Word: Windows PowerShell evaluated the default parameter before `$PSScriptRoot` was populated. Tiny script-host quirk; I’m moving that default initialization into the body.
+
+L77 2026-09-23T12:38:03.567Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+ param(
+     [string]$TestCasePath = "C:\Users\testuser\Desktop
+
+L82 2026-09-23T12:38:12.230Z SAY That startup issue is fixed. I’m rerunning now; this pass should get far enough to validate the real Word UI controls and the print path.
+
+L83 2026-09-23T12:38:14.360Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L88 2026-09-23T12:39:33.199Z SAY The second run started Word but didn’t see the expected `OpusApp` top-level class in time. I’m checking the live windows now; this usually means Word is sitting behind a first-run or recovery prompt with a different top-level class.
+
+L89 2026-09-23T12:39:33.201Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | Select-Object Id,MainWindowHandle,MainWindowTitle,Path
+
+L90 2026-09-23T12:39:33.209Z shell_command @'
+Add-Type -AssemblyName UIAutomationClient
+$root=[System.Windows.Automation.AutomationElement]::RootElement
+$children=$root.FindAll([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.Condition]::TrueCondition)
+foreach($c in $children){ if($c.Current.Name -or $c.Current.ClassName -match 'Word|Opus|Office|NUIDialog') { '{0} | {1} | {2} | handle={3}' -f $c.Current.Name,$c.Current.ClassName,$c.Current.ControlType.ProgrammaticName,$c.Current.NativeWindowHandle }}
+'@ | powershell -NoProfile -ExecutionPolicy Bypass -
+
+L96 2026-09-23T12:39:40.888Z SAY Word exited during startup, so the script never had a window to drive. I’m going to make startup verification process-aware and capture a clearer failure if Word quits, then launch once outside the script to see whether there’s an Office startup condition.
+
+L97 2026-09-23T12:39:43.304Z shell_command $p=Start-Process -FilePath 'C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE' -ArgumentList '/q' -PassThru; Start-Sleep -Seconds 5; $p.Refresh(); [pscustomobject]@{Id=$p.Id; HasExited=$p.HasExited; ExitCode= if($p.HasExited){$p.ExitCode}else{$null}; MainWindowHandle=$p.MainWindowHandle; MainWindowTitle=$p.MainWindowTitle}
+
+L101 2026-09-23T12:39:57.296Z shell_command @'
+Add-Type -AssemblyName UIAutomationClient
+$root=[System.Windows.Automation.AutomationElement]::RootElement
+$children=$root.FindAll([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.Condition]::TrueCondition)
+foreach($c in $children){ '{0} | {1} | {2} | handle={3}' -f $c.Current.Name,$c.Current.ClassName,$c.Current.ControlType.ProgrammaticName,$c.Current.NativeWindowHandle }
+'@ | powershell -NoProfile -ExecutionPolicy Bypass -
+
+L106 2026-09-23T12:40:10.696Z SAY A manual launch now shows the expected `Word | OpusApp` window, so the locator itself is valid. I’m increasing startup tolerance and adding a process-exit diagnostic so future failures say exactly whether Word quit or just took longer to show UI.
+
+L107 2026-09-23T12:40:16.202Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+-    [int]$TimeoutSeconds = 30,
++    [int]$TimeoutSeconds = 60,
+
+L112 2026-09-23T12:40:21.387Z shell_command powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L116 2026-09-23T12:41:06.941Z shell_command Get-ChildItem -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName | ForEach-Object { Get-Content -LiteralPath (Join-Path $_ 'run-log.csv') }
+
+L117 2026-09-23T12:41:06.951Z shell_command @'
+Add-Type -AssemblyName UIAutomationClient
+$root=[System.Windows.Automation.AutomationElement]::RootElement
+$word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp'))
+if(!$word){'no word'; exit}
+$all=$word.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+foreach($el in $all){ $name=$el.Current.Name; $aid=$el.Current.AutomationId; $ct=$el.Current.ControlType.ProgrammaticName; if($name -match 'File|Save|Browse|Print|Home|New|Blank|Document|Back') { '{0} | {1} | aid={2} enabled={3}' -f $name,$ct,$aid,$el.Current.IsEnabled }}
+'@ | powershell -NoProfile -ExecutionPolicy Bypass -
+
+L123 2026-09-23T12:41:20.644Z SAY The script successfully opened Word and created/typed the document, then failed because this Word build does not expose the File tab as `FileTabButton` once a document is active. I’m inspecting the active-document ribbon names and will switch to the actual exposed control.
+
+L124 2026-09-23T12:41:29.217Z shell_command $p=Start-Process -FilePath 'C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE' -ArgumentList '/q' -PassThru; Start-Sleep -Seconds 3; @'
+Add-Type -AssemblyName UIAutomationClient
+$root=[System.Windows.Automation.AutomationElement]::RootElement
+$word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp'))
+$blank=$word.FindFirst([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty,'Blank document'))
+if($blank){$blank.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Seconds 2}
+$word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp'))
+$all=$word.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+foreach($el in $all){ $name=$el.Current.Name; $aid=$el.Current.AutomationId; $ct=$el.Current.ControlType.ProgrammaticName; if($name -or $aid){ if($name -match 'File|Save|Browse|Print|Home|Insert|Design|Layout|Document|Close|Share' -or $aid -match 'File|Save|Print'){ '{0} | {1} | aid={2} cls={3} enabled={4}' -f $name,$ct,$aid,$el.Current.ClassName,$el.Current.IsEnabled } }}
+'@ | powershell -NoProfile -ExecutionPolicy Bypass -
+
+L128 2026-09-23T12:41:51.709Z shell_command @'
+Add-Type -AssemblyName UIAutomationClient
+$root=[System.Windows.Automation.AutomationElement]::RootElement
+$deadline=(Get-Date).AddSeconds(20)
+do { $word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp')); if($word){break}; Start-Sleep -Milliseconds 500 } while((Get-Date) -lt $deadline)
+if(!$word){'no word'; exit}
+$blank=$word.FindFirst([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty,'Blank document'))
+if($blank){$blank.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Seconds 2}
+$word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp'))
+$all=$word.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+foreach($el in $all){ $name=$el.Current.Name; $aid=$el.Current.AutomationId; $ct=$el.Current.ControlType.ProgrammaticName; if($name -or $aid){ if($name -match 'File|Save|Browse|Print|Home|Insert|Design|Layout|Document|Close|Share' -or $aid -match 'File|Save|Print'){ '{0} | {1} | aid={2} cls={3} enabled={4}' -f $name,$ct,$aid,$el.Current.ClassName,$el.Current.IsEnabled } }}
+'@ | powershell -NoProfile -ExecutionPolicy Bypass -
+
+L132 2026-09-23T12:42:05.387Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+-    $fileTab = Find-Element -Root $window -Name "File" -Automa
+
+L138 2026-09-23T12:42:09.068Z SAY The active-document File control is named `File Tab` here while keeping the same automation id, so I’ve loosened that locator to use the id only. Running again now.
+
+L139 2026-09-23T12:42:11.136Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L144 2026-09-23T12:42:43.901Z SAY Word’s launcher can exit with code 0 while the Office UI is still being handed off, so treating that as fatal was too strict. I’m removing that early-abort path and letting UI discovery be the source of truth.
+
+L145 2026-09-23T12:42:45.288Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+-        if ($script:CurrentProcess) {
+-            $script:Cur
+
+L150 2026-09-23T12:42:50.200Z SAY That launcher behavior is accounted for. I’m rerunning with the corrected File tab locator and a UI-based startup wait.
+
+L151 2026-09-23T12:42:52.402Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L155 2026-09-23T12:44:21.617Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | Select-Object Id,MainWindowHandle,MainWindowTitle,Path
+
+L156 2026-09-23T12:44:21.621Z shell_command @'
+Add-Type -AssemblyName UIAutomationClient
+$root=[System.Windows.Automation.AutomationElement]::RootElement
+$children=$root.FindAll([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.Condition]::TrueCondition)
+foreach($c in $children){ '{0} | {1} | {2} | handle={3}' -f $c.Current.Name,$c.Current.ClassName,$c.Current.ControlType.ProgrammaticName,$c.Current.NativeWindowHandle }
+'@ | powershell -NoProfile -ExecutionPolicy Bypass -
+
+L157 2026-09-23T12:44:21.623Z shell_command Get-ChildItem -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName | ForEach-Object { $_; Get-Content -LiteralPath (Join-Path $_ 'run-log.csv') }
+
+L164 2026-09-23T12:44:28.900Z SAY This run opened Word, then Word disappeared before the document tile could be clicked. I’m looking at the captured screenshot from the passing “Open Word” step now; that should show whether Office is landing on a licensing/account prompt or another transient screen.
+
+L165 2026-09-23T12:44:29.706Z view_image {'path': 'C:\\Users\\testuser\\Documents\\Baseline\\artifacts\\word-gui-test\\20260923-054255\\evidence\\01-open-word.png', 'detail': 'high'}
+
+L170 2026-09-23T12:44:41.692Z SAY The screenshot explains the odd pass: my fallback matched the Codex window title because it contained “Word”. That was too permissive. I’m tightening discovery to Word’s actual `OpusApp` window class only, so evidence can’t accidentally certify the wrong window.
+
+L171 2026-09-23T12:44:44.234Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+-        if ($window) { return $window }
+-        $children = $
+
+L177 2026-09-23T12:44:50.175Z SAY I’ve removed the false-positive fallback. This run should either drive Word for real or fail truthfully at launch, which is exactly what we want in a verification script.
+
+L178 2026-09-23T12:44:51.417Z shell_command powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L182 2026-09-23T12:46:58.113Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | Select-Object Id,HasExited,MainWindowHandle,MainWindowTitle,Path
+
+L183 2026-09-23T12:46:58.129Z shell_command Get-ChildItem -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName | ForEach-Object { $_; Get-Content -LiteralPath (Join-Path $_ 'run-log.csv') }
+
+L188 2026-09-23T12:47:06.293Z view_image {'path': 'C:\\Users\\testuser\\Documents\\Baseline\\artifacts\\word-gui-test\\20260923-054456\\evidence\\01-open-word.png', 'detail': 'high'}
+
+L193 2026-09-23T12:47:15.482Z SAY The newer log still shows the old false-positive behavior, which means the patch didn’t remove every loose path I thought it did. I’m reading the exact function now and tightening it again.
+
+L194 2026-09-23T12:47:16.977Z shell_command Select-String -Path 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -Pattern 'function Get-WordWindow|Name -like|ClassNameProperty|return \$window' -Context 0,8
+
+L199 2026-09-23T12:47:29.204Z SAY The function is tight now; the screenshot being Codex means Word existed but wasn’t brought forward, and then it exited before the next step. I’m checking whether Word stays alive for a minute when launched normally, because that determines whether this is an Office startup/licensing issue or a focus issue in the automation.
+
+L200 2026-09-23T12:47:32.418Z shell_command $p=Start-Process -FilePath 'C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE' -ArgumentList '/q' -PassThru; 1..12 | ForEach-Object { Start-Sleep -Seconds 5; $proc=Get-Process WINWORD -ErrorAction SilentlyContinue | Select-Object -First 1; if($proc){ [pscustomobject]@{T=$_*5; Id=$proc.Id; MainWindowHandle=$proc.MainWindowHandle; Title=$proc.MainWindowTitle} } else { [pscustomobject]@{T=$_*5; Id=$null; MainWindowHandle=$null; Title='NO_PROCESS'} } }
+
+L205 2026-09-23T12:48:43.490Z SAY Found the culprit: my optional-dialog dismissor considered the main Word window itself a “Word” dialog and clicked its visible Close button. Very rude of it. I’m restricting that helper to real prompt-like windows and removing the generic Close action.
+
+L206 2026-09-23T12:48:48.039Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+     $root = Get-RootElement
+     $dialogs = $root.FindAll([Sys
+
+L212 2026-09-23T12:48:52.984Z SAY The script was literally closing Word during “dismiss optional prompts”; fixed. I’m doing another full run now, and this one should reach the Save As flow.
+
+L213 2026-09-23T12:48:55.403Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L218 2026-09-23T12:49:54.143Z SAY This run got into actual clicking and exposed a PowerShell 5 marshalling quirk in the mouse-click helper. I’m changing `SendInput` to compute the structure size from an instance, which is the compatible form.
+
+L219 2026-09-23T12:49:55.444Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+-    [NativeInput]::SendInput(2, @($down, $up), [Runtime.Intero
+
+L224 2026-09-23T12:50:00.479Z SAY Mouse clicking is patched for this PowerShell runtime. I’m rerunning; the next likely fragile area is Word’s Save As backstage layout, so I’ll verify that from the captured logs.
+
+L225 2026-09-23T12:50:02.646Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L229 2026-09-23T12:51:08.916Z shell_command Get-ChildItem -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName | ForEach-Object { $_; Get-Content -LiteralPath (Join-Path $_ 'run-log.csv') }
+
+L230 2026-09-23T12:51:09.016Z shell_command Get-ChildItem -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1 -ExpandProperty FullName | ForEach-Object { Get-ChildItem -LiteralPath (Join-Path $_ 'evidence') | Select-Object Name,Length }
+
+L235 2026-09-23T12:51:22.958Z SAY Open and document creation are now passing. Save As reached backstage, but this Office build doesn’t show a `Browse` label at that point; I’m inspecting that screenshot/control tree and will adapt to the visible save location controls Word actually presents.
+
+L236 2026-09-23T12:51:23.699Z view_image {'path': 'C:\\Users\\testuser\\Documents\\Baseline\\artifacts\\word-gui-test\\20260923-055006\\evidence\\03-failure-Save-Test-Document.png', 'detail': 'high'}
+
+L241 2026-09-23T12:51:35.277Z SAY The Save As control is visible, but Word’s backstage navigation accepted the UIA call without actually changing pages. I’m switching those backstage items to physical mouse clicks on their visible rectangles, which matches the user-interaction requirement more closely anyway.
+
+L242 2026-09-23T12:51:43.012Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+ function Invoke-Element {
+     param([System.Windows.Automatio
+
+L248 2026-09-23T12:51:50.156Z SAY Backstage navigation now uses real clicks on the visible labels. Rerunning the full script; if the Save As page uses a different label than `Browse`, I’ll capture the new screen and adapt from there.
+
+L249 2026-09-23T12:51:52.922Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L253 2026-09-23T12:53:23.713Z view_image {'path': 'C:\\Users\\testuser\\Documents\\Baseline\\artifacts\\word-gui-test\\20260923-055205\\evidence\\03-failure-Save-Test-Document.png', 'detail': 'high'}
+
+L257 2026-09-23T12:53:29.077Z SAY It still didn’t reach `Browse`. I’m grabbing the latest evidence path and reading the screenshot so I can see whether the click missed, landed on the wrong page, or Word renamed the control.
+
+L258 2026-09-23T12:53:31.458Z shell_command $d=Get-ChildItem -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1; $d.FullName; Get-Content -LiteralPath (Join-Path $d.FullName 'run-log.csv'); Get-ChildItem -LiteralPath (Join-Path $d.FullName 'evidence') | Select-Object Name,FullName
+
+L261 2026-09-23T12:53:39.261Z view_image {'path': 'C:\\Users\\testuser\\Documents\\Baseline\\artifacts\\word-gui-test\\20260923-055206\\evidence\\03-failure-Save-Test-Document.png', 'detail': 'high'}
+
+L266 2026-09-23T12:53:46.734Z SAY The click missed because my locator was still too broad; it likely chose a non-navigation element before the left-rail item. I’m going to target the left-rail `Save As` list item specifically by control type and bounding rectangle.
+
+L267 2026-09-23T12:53:58.636Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 300; if (-not $_.HasExited) { $_.Kill() } }; $p=Start-Process -FilePath 'C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE' -ArgumentList '/q' -PassThru; Start-Sleep -Seconds 8; @'
+Add-Type -AssemblyName UIAutomationClient
+$root=[System.Windows.Automation.AutomationElement]::RootElement
+$word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp'))
+$blank=$word.FindFirst([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty,'Blank document'))
+if($blank){$blank.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Seconds 2}
+$word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp'))
+$file=$word.FindFirst([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty,'FileTabButton'))
+$file.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Seconds 1
+$word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp'))
+$all=$word.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+foreach($el in $all){ $name=$el.Current.Name; if($name -like '*Save*' -or $name -like '*Browse*' -or $name -like '*This PC*' -or $name -like '*More*'){ $r=$el.Current.BoundingRectangle; '{0} | {1} | aid={2} | rect={3},{4},{5},{6} | enabled={7}' -f $name,$el.Current.ControlType.ProgrammaticName,$el.Current.AutomationId,[int]$r.Left,[int]$r.Top,[int]$r.Width,[int]$r.Height,$el.Current.IsEnabled }}
+'@ | powershell -NoProfile -ExecutionPolicy Bypass -
+
+L272 2026-09-23T12:54:28.997Z SAY I confirmed the visible `Save As` rail item is a `ListItem` at screen rect `0,349,160,40`. I’m narrowing the script to that exact control type; this should avoid matching any document/recent item.
+
+L273 2026-09-23T12:54:29.759Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+-    $saveAs = Find-Element -Root $window -Name "Save As" -Part
+
+L278 2026-09-23T12:54:43.202Z shell_command @'
+Add-Type @"
+using System; using System.Runtime.InteropServices;
+public static class N { [DllImport("user32.dll")] public static extern bool SetCursorPos(int X,int Y); [DllImport("user32.dll")] public static extern void mouse_event(uint f,uint dx,uint dy,uint data, UIntPtr extra); }
+"@
+[N]::SetCursorPos(80,369)|Out-Null; Start-Sleep -Milliseconds 100; [N]::mouse_event(0x2,0,0,0,[UIntPtr]::Zero); [N]::mouse_event(0x4,0,0,0,[UIntPtr]::Zero); Start-Sleep -Seconds 1
+Add-Type -AssemblyName UIAutomationClient
+$root=[System.Windows.Automation.AutomationElement]::RootElement
+$word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp'))
+$all=$word.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+foreach($el in $all){ $name=$el.Current.Name; if($name -like '*Save*' -or $name -like '*Browse*' -or $name -like '*This PC*' -or $name -like '*More*' -or $name -like '*OneDrive*'){ $r=$el.Current.BoundingRectangle; '{0} | {1} | aid={2} | rect={3},{4},{5},{6} | enabled={7}' -f $name,$el.Current.ControlType.ProgrammaticName,$el.Current.AutomationId,[int]$r.Left,[int]$r.Top,[int]$r.Width,[int]$r.Height,$el.Current.IsEnabled }}
+'@ | powershell -NoProfile -ExecutionPolicy Bypass -
+
+L283 2026-09-23T12:54:54.227Z SAY The manual click test didn’t produce a tree, so the exploratory Word instance likely closed during the probe. I’m going to rely on the stricter locator and rerun the scripted flow cleanly.
+
+L284 2026-09-23T12:54:54.229Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | Select-Object Id,MainWindowHandle,MainWindowTitle
+
+L285 2026-09-23T12:54:54.232Z shell_command @'
+Add-Type -AssemblyName UIAutomationClient
+$root=[System.Windows.Automation.AutomationElement]::RootElement
+$children=$root.FindAll([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.Condition]::TrueCondition)
+foreach($c in $children){ if($c.Current.ClassName -eq 'OpusApp' -or $c.Current.Name -like '*Word*'){ '{0} | {1} | {2}' -f $c.Current.Name,$c.Current.ClassName,$c.Current.ControlType.ProgrammaticName }}
+'@ | powershell -NoProfile -ExecutionPolicy Bypass -
+
+L291 2026-09-23T12:55:03.039Z SAY Word is stable again. I’m running the full script from a clean start with the left-rail Save As target constrained to the visible `ListItem`.
+
+L292 2026-09-23T12:55:05.485Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L297 2026-09-23T12:56:16.877Z SAY The physical click helper still isn’t moving Word’s backstage page, so I’m replacing it with the simpler Win32 `mouse_event` path. It’s older, but for a visible left-nav click it is very reliable and still within the built-in Windows API constraint.
+
+L298 2026-09-23T12:56:24.587Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+   [DllImport("user32.dll", SetLastError=true)]
+   public stati
+
+L304 2026-09-23T12:56:29.168Z SAY The click helper now uses direct cursor movement plus Win32 mouse down/up events. Rerunning the full test; this is the point where the script should finally leave the Home backstage page.
+
+L305 2026-09-23T12:56:31.751Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L310 2026-09-23T12:58:25.072Z SAY Progress: it found and clicked through Save As/Browse, but the standard Save As dialog did not appear. I’m checking the screenshot to see whether Word opened an embedded filename field instead of the old Windows dialog.
+
+L311 2026-09-23T12:58:25.124Z shell_command $d=Get-ChildItem -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1; $d.FullName; Get-Content -LiteralPath (Join-Path $d.FullName 'run-log.csv'); Get-ChildItem -LiteralPath (Join-Path $d.FullName 'evidence') | Select-Object Name,FullName
+
+L314 2026-09-23T12:58:49.121Z view_image {'path': 'C:\\Users\\testuser\\Documents\\Baseline\\artifacts\\word-gui-test\\20260923-055638\\evidence\\03-failure-Save-Test-Document.png', 'detail': 'high'}
+
+L319 2026-09-23T12:59:00.746Z SAY The Save As dialog did appear, but my dialog wait only looked at top-level `Window` nodes and missed this one in the automation tree. I’m expanding that wait to search the desktop subtree by title, then the script can fill the filename field and click Save.
+
+L320 2026-09-23T12:59:05.174Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+ function Wait-ForDialog {
+     param([string]$TitleLike)
+     
+
+L326 2026-09-23T12:59:10.547Z SAY Dialog discovery now searches the full desktop automation subtree. Running again; I expect the next failure, if any, to be in filename entry or the print dialog.
+
+L327 2026-09-23T12:59:13.128Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L332 2026-09-23T13:00:38.781Z SAY The Save As dialog was found and acted on, but the expected file did not appear. I’m checking the evidence to see whether the filename field accepted the full path or Word saved to a default location/name.
+
+L333 2026-09-23T13:00:41.777Z shell_command $d=Get-ChildItem -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1; $d.FullName; Get-Content -LiteralPath (Join-Path $d.FullName 'run-log.csv'); Get-ChildItem -LiteralPath (Join-Path $d.FullName 'work') -Force -ErrorAction SilentlyContinue | Select-Object Name,Length; Get-ChildItem -LiteralPath (Join-Path $d.FullName 'evidence') | Select-Object Name,FullName
+
+L336 2026-09-23T13:00:49.719Z view_image {'path': 'C:\\Users\\testuser\\Documents\\Baseline\\artifacts\\word-gui-test\\20260923-055917\\evidence\\03-failure-Save-Test-Document.png', 'detail': 'high'}
+
+L340 2026-09-23T13:00:56.253Z shell_command Get-ChildItem -Path 'C:\Users\testuser\Documents' -Filter 'Word GUI automation test document*.docx' -Recurse -ErrorAction SilentlyContinue | Select-Object FullName,Length,LastWriteTime | Sort-Object LastWriteTime -Descending | Select-Object -First 5
+
+L345 2026-09-23T13:01:08.406Z SAY Word did save the document, but to its default Documents folder using the default filename; my filename-field locator hit the wrong control. I’m inspecting the actual Save As dialog edit controls so the script can enter a unique file name predictably and clean it up afterward.
+
+L346 2026-09-23T13:01:22.112Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; $p=Start-Process -FilePath 'C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE' -ArgumentList '/q' -PassThru; Start-Sleep -Seconds 8; @'
+Add-Type -AssemblyName UIAutomationClient
+Add-Type @" 
+using System; using System.Runtime.InteropServices; public static class M { [DllImport("user32.dll")] public static extern bool SetCursorPos(int X,int Y); [DllImport("user32.dll")] public static extern void mouse_event(uint f,uint dx,uint dy,uint data, UIntPtr extra); }
+"@
+function Click($x,$y){[M]::SetCursorPos($x,$y)|Out-Null; Start-Sleep -Milliseconds 100; [M]::mouse_event(2,0,0,0,[UIntPtr]::Zero); [M]::mouse_event(4,0,0,0,[UIntPtr]::Zero); Start-Sleep -Milliseconds 800}
+$root=[System.Windows.Automation.AutomationElement]::RootElement
+$word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp'))
+$blank=$word.FindFirst([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty,'Blank document'))
+$blank.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Seconds 2
+$word=$root.FindFirst([System.Windows.Automation.TreeScope]::Children,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ClassNameProperty,'OpusApp'))
+$file=$word.FindFirst([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty,'FileTabButton'))
+$file.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke(); Start-Sleep -Seconds 1
+Click 80 369
+Click 535 642
+Start-Sleep -Seconds 2
+$items=$root.FindAll([System.Windows.Automation.TreeScope]::Descendants,[System.Windows.Automation.Condition]::TrueCondition)
+foreach($el in $items){ if($el.Current.Name -like '*Save As*' -or $el.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit -or $el.Current.Name -like '*File name*' -or $el.Current.Name -like '*Save*'){ $r=$el.Current.BoundingRectangle; '{0} | {1} | aid={2} cls={3} rect={4},{5},{6},{7}' -f $el.Current.Name,$el.Current.ControlType.ProgrammaticName,$el.Current.AutomationId,$el.Current.ClassName,[int]$r.Left,[int]$r.Top,[int]$r.Width,[int]$r.Height }}
+'@ | powershell -NoProfile -ExecutionPolicy Bypass -
+
+L351 2026-09-23T13:01:41.011Z SAY The quick probe didn’t catch the dialog tree, probably because the fixed coordinates were off on that fresh window. I don’t need the probe to proceed: I can make filename entry target the visible dialog’s focused field using ordinary typing, no shortcuts or clipboard.
+
+L353 2026-09-23T13:01:50.015Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+     $dialog = Wait-ForDialog "Save As"
+     Set-Foreground $di
+
+L359 2026-09-23T13:01:57.797Z SAY I changed filename entry to type into the already-focused File name field, just like a user would after the Save As dialog opens. Rerunning now.
+
+L360 2026-09-23T13:01:59.884Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1' -KeepArtifacts
+
+L365 2026-09-23T13:05:09.218Z SAY Good, the full flow passed with artifacts retained for inspection. I’m doing one final default run now, which exercises the same steps but cleans the created Word/PDF files afterward, leaving only logs and screenshots as evidence.
+
+L366 2026-09-23T13:05:09.239Z shell_command Get-Content -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060209\run-log.csv'
+
+L367 2026-09-23T13:05:09.265Z shell_command Test-Path -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060209\work\WordGuiTestDocument.docx'; Test-Path -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060209\work\WordGuiTestDocument-printed.pdf'
+
+L373 2026-09-23T13:05:27.388Z SAY The successful run shows a warning on the print step: Word accepted the Print command, but Windows did not show a “Save Print Output As” dialog, so there is no PDF spool artifact. I’m tightening that step so print is verified by either a generated PDF or the visible Word print command state, and I’ll report the warning honestly if the machine’s default printer handles it silently.
+
+L374 2026-09-23T13:05:28.232Z view_image {'path': 'C:\\Users\\testuser\\Documents\\Baseline\\artifacts\\word-gui-test\\20260923-060209\\evidence\\05-print-test-document.png', 'detail': 'high'}
+
+L379 2026-09-23T13:05:39.957Z SAY The print evidence shows Word is on the print page with `Microsoft Print to PDF` selected, but the script’s UIA invoke did not press the large visible Print button. I’m changing that to a physical click too, so print verification can produce the PDF evidence.
+
+L380 2026-09-23T13:05:41.892Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+     Select-PrinterIfAvailable -Root $window | Out-Null
+     $p
+
+L386 2026-09-23T13:05:48.562Z SAY The print command now uses an actual visible-button click. I’m running the final cleaned-up pass; this one should leave the document and PDF removed after verification, with the screenshots and CSV log preserved.
+
+L387 2026-09-23T13:05:51.167Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1'
+
+L392 2026-09-23T13:08:49.644Z SAY The final cleaned-up run completed successfully. I’m checking the log and confirming the created document/PDF were removed afterward, then I’ll clean the one earlier exploratory Word file that was created before the script was hardened.
+
+L393 2026-09-23T13:08:49.650Z shell_command Get-Content -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060600\run-log.csv'
+
+L394 2026-09-23T13:08:49.671Z shell_command @('C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060600\work\WordGuiTestDocument.docx','C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060600\work\WordGuiTestDocument-printed.pdf','C:\Users\testuser\Documents\Word GUI automation test document.docx') | ForEach-Object { [pscustomobject]@{Path=$_; Exists=(Test-Path -LiteralPath $_)} } | Format-Table -AutoSize
+
+L395 2026-09-23T13:08:49.673Z shell_command Get-ChildItem -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060600\evidence' | Select-Object Name,Length | Format-Table -AutoSize
+
+L401 2026-09-23T13:08:58.138Z view_image {'path': 'C:\\Users\\testuser\\Documents\\Baseline\\artifacts\\word-gui-test\\20260923-060600\\evidence\\05-print-test-document.png', 'detail': 'high'}
+
+L406 2026-09-23T13:09:04.568Z SAY The print screenshot confirms the button press still targeted the wrong `Print` control. I’m making that locator choose the large visible Print button by its rectangle size and location, then I’ll do one last run.
+
+L407 2026-09-23T13:09:08.974Z PATCH *** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+ function Print-TestDocument {
+@@
+-    $printButton = Find-Elem
+
+L413 2026-09-23T13:09:13.873Z SAY The print target is now the large visible Print button only. Final run starting; after that I’ll remove earlier retained/exploratory outputs and report the final evidence folder.
+
+L414 2026-09-23T13:09:15.943Z shell_command Get-Process WINWORD -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null; Start-Sleep -Milliseconds 500; if (-not $_.HasExited) { $_.Kill() } }; powershell -NoProfile -ExecutionPolicy Bypass -File 'C:\Users\testuser\Documents\Baseline\scripts\Invoke-WordGuiTest.ps1'
+
+L419 2026-09-23T13:11:00.285Z SAY The final run completed. I’m verifying the final log and cleanup state now, then I’ll give you the exact script path and evidence path.
+
+L420 2026-09-23T13:11:00.300Z shell_command Get-Content -LiteralPath 'C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060920\run-log.csv'
+
+L421 2026-09-23T13:11:00.322Z shell_command @('C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060920\work\WordGuiTestDocument.docx','C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060920\work\WordGuiTestDocument-printed.pdf','C:\Users\testuser\Documents\Word GUI automation test document.docx','C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060209\work\WordGuiTestDocument.docx') | ForEach-Object { [pscustomobject]@{Path=$_; Exists=(Test-Path -LiteralPath $_)} } | Format-Table -AutoSize
+
+L422 2026-09-23T13:11:00.517Z shell_command git status --short
+
+L429 2026-09-23T13:11:11.641Z SAY The final run is clean and all five steps passed. I found two earlier exploratory files still present from the debugging runs, so I’m removing those specific test-created files now while preserving the final logs/screenshots.
+
+L430 2026-09-23T13:11:14.941Z shell_command $paths = @('C:\Users\testuser\Documents\Word GUI automation test document.docx','C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060209\work\WordGuiTestDocument.docx','C:\Users\testuser\Documents\Baseline\artifacts\word-gui-test\20260923-060209\work\WordGuiTestDocument-printed.pdf'); foreach($p in $paths){ if(Test-Path -LiteralPath $p){ Remove-Item -LiteralPath $p -Force } }; $paths | ForEach-Object { [pscustomobject]@{Path=$_; Exists=(Test-Path -LiteralPath $_)} } | Format-Table -AutoSize
+
+L435 2026-09-23T13:11:33.804Z SAY Done. I created the repeatable PowerShell GUI test script here:
+
+[Invoke-WordGuiTest.ps1](C:/Users/testuser/Documents/Baseline/scripts/Invoke-WordGuiTest.ps1)
+
+Final run results: all 5 test steps passed.
+
+Evidence and run log are here:
+
+[run-log.csv](C:/Users/testuser/Documents/Baseline/artifacts/word-gui-test/20260923-060920/run-log.csv)  
+[evidence folder](C:/Users/testuser/Documents/Baseline/artifacts/word-gui-test/20260923-060920/evidence)
+
+The script uses built-in PowerShell, .NET, UI Automation, and Win32 APIs only. It drives visible Word/Windows GUI controls, captures screenshots for each step, logs results, and cleans up the created document/print output after verification.

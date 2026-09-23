@@ -1,0 +1,6 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+-    $saveAs = Find-Element -Root $window -Name "Save As" -Partial -Timeout 10
++    $saveAs = Find-Element -Root $window -Name "Save As" -ControlType ([System.Windows.Automation.ControlType]::ListItem) -Timeout 10
+*** End Patch

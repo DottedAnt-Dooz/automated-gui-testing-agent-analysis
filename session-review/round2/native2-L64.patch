@@ -1,0 +1,11 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+     catch {
+         $rect = $edit.Current.BoundingRectangle
+         Click-Point -X ([int]($rect.Left + 10)) -Y ([int]($rect.Top + ($rect.Height / 2)))
+-        Send-KeyAsUser "^a"
+         Send-TextAsUser $Value
+     }
+ }
+*** End Patch

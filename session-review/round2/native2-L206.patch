@@ -1,0 +1,17 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+     $root = Get-RootElement
+     $dialogs = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+     foreach ($dialog in $dialogs) {
+         $title = $dialog.Current.Name
+-        if ($title -match "Microsoft Word|Word|Sign in|Privacy|Office") {
+-            foreach ($buttonName in @("No", "Not now", "Skip", "Accept", "Close", "OK")) {
++        $className = $dialog.Current.ClassName
++        if ($className -eq "OpusApp") { continue }
++        if ($title -match "Sign in|Privacy|Office|Welcome|First things first|Microsoft Word") {
++            foreach ($buttonName in @("No", "Not now", "Skip", "Accept", "OK")) {
+                 $button = $dialog.FindFirst(
+                     [System.Windows.Automation.TreeScope]::Descendants,
+                     (New-PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty) $buttonName)
+*** End Patch

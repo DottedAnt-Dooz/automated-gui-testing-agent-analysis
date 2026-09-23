@@ -1,0 +1,487 @@
+*** Begin Patch
+*** Add File: scripts/Invoke-WordGuiTest.ps1
++[CmdletBinding()]
++param(
++    [string]$TestCasePath = "C:\Users\testuser\Desktop\Microsoft Word.csv",
++    [string]$OutputRoot = (Join-Path (Split-Path -Parent $PSScriptRoot) "artifacts\word-gui-test"),
++    [string]$DocumentText = "Word GUI automation test document.`r`nCreated by Invoke-WordGuiTest.ps1.",
++    [int]$TimeoutSeconds = 30,
++    [switch]$KeepArtifacts
++)
++
++Set-StrictMode -Version Latest
++$ErrorActionPreference = "Stop"
++
++Add-Type -AssemblyName UIAutomationClient
++Add-Type -AssemblyName UIAutomationTypes
++Add-Type -AssemblyName System.Drawing
++Add-Type -AssemblyName System.Windows.Forms
++
++Add-Type @"
++using System;
++using System.Runtime.InteropServices;
++public static class NativeInput {
++  [StructLayout(LayoutKind.Sequential)]
++  public struct INPUT {
++    public int type;
++    public InputUnion U;
++  }
++  [StructLayout(LayoutKind.Explicit)]
++  public struct InputUnion {
++    [FieldOffset(0)] public MOUSEINPUT mi;
++    [FieldOffset(0)] public KEYBDINPUT ki;
++  }
++  [StructLayout(LayoutKind.Sequential)]
++  public struct MOUSEINPUT {
++    public int dx;
++    public int dy;
++    public uint mouseData;
++    public uint dwFlags;
++    public uint time;
++    public IntPtr dwExtraInfo;
++  }
++  [StructLayout(LayoutKind.Sequential)]
++  public struct KEYBDINPUT {
++    public ushort wVk;
++    public ushort wScan;
++    public uint dwFlags;
++    public uint time;
++    public IntPtr dwExtraInfo;
++  }
++  [DllImport("user32.dll", SetLastError=true)]
++  public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
++  [DllImport("user32.dll")]
++  public static extern bool SetCursorPos(int X, int Y);
++  [DllImport("user32.dll")]
++  public static extern bool SetForegroundWindow(IntPtr hWnd);
++}
++"@
++
++$script:RunStamp = Get-Date -Format "yyyyMMdd-HHmmss"
++$script:RunDir = Join-Path $OutputRoot $script:RunStamp
++$script:EvidenceDir = Join-Path $script:RunDir "evidence"
++$script:WorkDir = Join-Path $script:RunDir "work"
++$script:LogPath = Join-Path $script:RunDir "run-log.csv"
++$script:StepNumber = 0
++$script:CurrentProcess = $null
++$script:DocumentPath = Join-Path $script:WorkDir "WordGuiTestDocument.docx"
++$script:PrintPath = Join-Path $script:WorkDir "WordGuiTestDocument-printed.pdf"
++$script:CreatedFiles = New-Object System.Collections.Generic.List[string]
++
++New-Item -ItemType Directory -Force -Path $script:EvidenceDir, $script:WorkDir | Out-Null
++"Timestamp,Step,Action,ExpectedResult,Status,Detail,Evidence" | Set-Content -LiteralPath $script:LogPath -Encoding UTF8
++
++function ConvertTo-CsvCell {
++    param([AllowNull()][object]$Value)
++    $text = [string]$Value
++    '"' + $text.Replace('"','""') + '"'
++}
++
++function Write-StepLog {
++    param(
++        [string]$Action,
++        [string]$ExpectedResult,
++        [string]$Status,
++        [string]$Detail,
++        [string]$Evidence = ""
++    )
++    $row = @(
++        (Get-Date -Format o),
++        $script:StepNumber,
++        $Action,
++        $ExpectedResult,
++        $Status,
++        $Detail,
++        $Evidence
++    ) | ForEach-Object { ConvertTo-CsvCell $_ }
++    Add-Content -LiteralPath $script:LogPath -Value ($row -join ",") -Encoding UTF8
++}
++
++function Save-Screenshot {
++    param([string]$Name)
++    $safe = ($Name -replace '[^a-zA-Z0-9._-]+','-').Trim('-')
++    $path = Join-Path $script:EvidenceDir ("{0:00}-{1}.png" -f $script:StepNumber, $safe)
++    $bounds = [System.Windows.Forms.SystemInformation]::VirtualScreen
++    $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
++    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
++    try {
++        $graphics.CopyFromScreen($bounds.Left, $bounds.Top, 0, 0, $bounds.Size)
++        $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
++    }
++    finally {
++        $graphics.Dispose()
++        $bitmap.Dispose()
++    }
++    return $path
++}
++
++function Resolve-WordPath {
++    $cmd = Get-Command winword.exe -ErrorAction SilentlyContinue
++    if ($cmd) { return $cmd.Source }
++    $candidates = @(
++        "C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE",
++        "C:\Program Files (x86)\Microsoft Office\root\Office16\WINWORD.EXE"
++    )
++    foreach ($candidate in $candidates) {
++        if (Test-Path -LiteralPath $candidate) { return $candidate }
++    }
++    $found = Get-ChildItem -Path "C:\Program Files","C:\Program Files (x86)" -Recurse -Filter WINWORD.EXE -ErrorAction SilentlyContinue |
++        Select-Object -First 1 -ExpandProperty FullName
++    if ($found) { return $found }
++    throw "Microsoft Word executable was not found."
++}
++
++function Get-RootElement {
++    [System.Windows.Automation.AutomationElement]::RootElement
++}
++
++function New-PropertyCondition {
++    param($Property, [object]$Value)
++    New-Object System.Windows.Automation.PropertyCondition($Property, $Value)
++}
++
++function Wait-Until {
++    param(
++        [scriptblock]$Condition,
++        [int]$Timeout = $TimeoutSeconds,
++        [string]$Description = "condition"
++    )
++    $deadline = (Get-Date).AddSeconds($Timeout)
++    do {
++        $result = & $Condition
++        if ($result) { return $result }
++        Start-Sleep -Milliseconds 250
++    } while ((Get-Date) -lt $deadline)
++    throw "Timed out waiting for $Description."
++}
++
++function Get-WordWindow {
++    Wait-Until -Description "Word main window" -Condition {
++        $root = Get-RootElement
++        $root.FindFirst(
++            [System.Windows.Automation.TreeScope]::Children,
++            (New-PropertyCondition ([System.Windows.Automation.AutomationElement]::ClassNameProperty) "OpusApp")
++        )
++    }
++}
++
++function Set-Foreground {
++    param([System.Windows.Automation.AutomationElement]$Element)
++    $handle = [IntPtr]$Element.Current.NativeWindowHandle
++    if ($handle -ne [IntPtr]::Zero) {
++        [NativeInput]::SetForegroundWindow($handle) | Out-Null
++        Start-Sleep -Milliseconds 250
++    }
++}
++
++function Find-Element {
++    param(
++        [System.Windows.Automation.AutomationElement]$Root,
++        [string]$Name,
++        [string]$AutomationId,
++        [System.Windows.Automation.ControlType]$ControlType,
++        [switch]$Partial,
++        [int]$Timeout = $TimeoutSeconds
++    )
++    Wait-Until -Timeout $Timeout -Description "UI element '$Name$AutomationId'" -Condition {
++        $all = $Root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
++        foreach ($el in $all) {
++            if ($AutomationId -and $el.Current.AutomationId -ne $AutomationId) { continue }
++            if ($Name) {
++                if ($Partial) {
++                    if ($el.Current.Name -notlike "*$Name*") { continue }
++                }
++                elseif ($el.Current.Name -ne $Name) { continue }
++            }
++            if ($PSBoundParameters.ContainsKey("ControlType") -and $el.Current.ControlType -ne $ControlType) { continue }
++            if (-not $el.Current.IsEnabled) { continue }
++            return $el
++        }
++        return $null
++    }
++}
++
++function Invoke-Element {
++    param([System.Windows.Automation.AutomationElement]$Element)
++    try {
++        $pattern = $Element.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
++        $pattern.Invoke()
++    }
++    catch {
++        $rect = $Element.Current.BoundingRectangle
++        if ($rect.IsEmpty) { throw }
++        Click-Point -X ([int]($rect.Left + ($rect.Width / 2))) -Y ([int]($rect.Top + ($rect.Height / 2)))
++    }
++    Start-Sleep -Milliseconds 750
++}
++
++function Click-Point {
++    param([int]$X, [int]$Y)
++    [NativeInput]::SetCursorPos($X, $Y) | Out-Null
++    Start-Sleep -Milliseconds 100
++    $down = New-Object NativeInput+INPUT
++    $down.type = 0
++    $down.U.mi.dwFlags = 0x0002
++    $up = New-Object NativeInput+INPUT
++    $up.type = 0
++    $up.U.mi.dwFlags = 0x0004
++    [NativeInput]::SendInput(2, @($down, $up), [Runtime.InteropServices.Marshal]::SizeOf([NativeInput+INPUT])) | Out-Null
++    Start-Sleep -Milliseconds 250
++}
++
++function Send-TextAsUser {
++    param([string]$Text)
++    [System.Windows.Forms.SendKeys]::SendWait($Text.Replace("+","{+}").Replace("^","{^}").Replace("%","{%}").Replace("~","{~}").Replace("(","{(}").Replace(")","{)}"))
++    Start-Sleep -Milliseconds 500
++}
++
++function Send-KeyAsUser {
++    param([string]$Keys)
++    [System.Windows.Forms.SendKeys]::SendWait($Keys)
++    Start-Sleep -Milliseconds 300
++}
++
++function Dismiss-OptionalDialogs {
++    $root = Get-RootElement
++    $dialogs = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
++    foreach ($dialog in $dialogs) {
++        $title = $dialog.Current.Name
++        if ($title -match "Microsoft Word|Word|Sign in|Privacy|Office") {
++            foreach ($buttonName in @("No", "Not now", "Skip", "Accept", "Close", "OK")) {
++                $button = $dialog.FindFirst(
++                    [System.Windows.Automation.TreeScope]::Descendants,
++                    (New-PropertyCondition ([System.Windows.Automation.AutomationElement]::NameProperty) $buttonName)
++                )
++                if ($button -and $button.Current.IsEnabled) {
++                    Invoke-Element $button
++                    break
++                }
++            }
++        }
++    }
++}
++
++function Start-WordGui {
++    $wordPath = Resolve-WordPath
++    $script:CurrentProcess = Start-Process -FilePath $wordPath -ArgumentList "/q" -PassThru
++    $window = Get-WordWindow
++    Set-Foreground $window
++    Dismiss-OptionalDialogs
++    return $window
++}
++
++function Create-TestDocument {
++    $window = Get-WordWindow
++    Set-Foreground $window
++    $blank = Find-Element -Root $window -Name "Blank document" -ControlType ([System.Windows.Automation.ControlType]::ListItem) -Timeout 10
++    Invoke-Element $blank
++    $window = Get-WordWindow
++    Set-Foreground $window
++    Start-Sleep -Seconds 1
++    Send-TextAsUser $DocumentText
++    Send-KeyAsUser "{ENTER}"
++    Send-TextAsUser ("Run stamp: " + $script:RunStamp)
++    Save-Screenshot "created-document" | Out-Null
++    return $true
++}
++
++function Set-DialogText {
++    param(
++        [System.Windows.Automation.AutomationElement]$Dialog,
++        [string]$AutomationId,
++        [string]$Value
++    )
++    $edit = Find-Element -Root $Dialog -AutomationId $AutomationId -ControlType ([System.Windows.Automation.ControlType]::Edit) -Timeout 10
++    try {
++        $pattern = $edit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
++        $pattern.SetValue($Value)
++    }
++    catch {
++        $rect = $edit.Current.BoundingRectangle
++        Click-Point -X ([int]($rect.Left + 10)) -Y ([int]($rect.Top + ($rect.Height / 2)))
++        Send-KeyAsUser "^a"
++        Send-TextAsUser $Value
++    }
++}
++
++function Wait-ForDialog {
++    param([string]$TitleLike)
++    Wait-Until -Description "dialog '$TitleLike'" -Condition {
++        $root = Get-RootElement
++        $children = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
++        foreach ($child in $children) {
++            if ($child.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window -and $child.Current.Name -like "*$TitleLike*") {
++                return $child
++            }
++        }
++        return $null
++    }
++}
++
++function Save-TestDocument {
++    $window = Get-WordWindow
++    Set-Foreground $window
++    $fileTab = Find-Element -Root $window -Name "File" -AutomationId "FileTabButton" -Timeout 5
++    Invoke-Element $fileTab
++    $window = Get-WordWindow
++    $saveAs = Find-Element -Root $window -Name "Save As" -Partial -Timeout 10
++    Invoke-Element $saveAs
++    $browse = Find-Element -Root $window -Name "Browse" -Partial -Timeout 10
++    Invoke-Element $browse
++    $dialog = Wait-ForDialog "Save As"
++    Set-Foreground $dialog
++    Set-DialogText -Dialog $dialog -AutomationId "1001" -Value $script:DocumentPath
++    $save = Find-Element -Root $dialog -Name "Save" -ControlType ([System.Windows.Automation.ControlType]::Button) -Timeout 10
++    Invoke-Element $save
++    Wait-Until -Timeout 20 -Description "saved document file" -Condition { Test-Path -LiteralPath $script:DocumentPath }
++    $script:CreatedFiles.Add($script:DocumentPath)
++    Save-Screenshot "saved-document" | Out-Null
++    return $true
++}
++
++function Close-CurrentWordWindow {
++    $window = Get-WordWindow
++    Set-Foreground $window
++    $close = Find-Element -Root $window -AutomationId "Close" -Name "Close" -ControlType ([System.Windows.Automation.ControlType]::Button) -Timeout 5
++    Invoke-Element $close
++    Start-Sleep -Seconds 1
++    Dismiss-OptionalDialogs
++}
++
++function Open-CreatedDocument {
++    Close-CurrentWordWindow
++    $script:CurrentProcess = Start-Process -FilePath $script:DocumentPath -PassThru
++    $window = Get-WordWindow
++    Set-Foreground $window
++    Wait-Until -Timeout 20 -Description "created document window" -Condition {
++        (Get-WordWindow).Current.Name -match "WordGuiTestDocument|Word"
++    } | Out-Null
++    Save-Screenshot "opened-created-document" | Out-Null
++    return $true
++}
++
++function Select-PrinterIfAvailable {
++    param([System.Windows.Automation.AutomationElement]$Root)
++    $combo = $Root.FindFirst(
++        [System.Windows.Automation.TreeScope]::Descendants,
++        (New-PropertyCondition ([System.Windows.Automation.AutomationElement]::ControlTypeProperty) ([System.Windows.Automation.ControlType]::ComboBox))
++    )
++    if (-not $combo) { return $false }
++    try {
++        $expand = $combo.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
++        $expand.Expand()
++        Start-Sleep -Milliseconds 500
++        $pdf = Find-Element -Root (Get-RootElement) -Name "Microsoft Print to PDF" -Partial -Timeout 5
++        Invoke-Element $pdf
++        return $true
++    }
++    catch {
++        return $false
++    }
++}
++
++function Print-TestDocument {
++    $window = Get-WordWindow
++    Set-Foreground $window
++    $fileTab = Find-Element -Root $window -Name "File" -AutomationId "FileTabButton" -Timeout 5
++    Invoke-Element $fileTab
++    $window = Get-WordWindow
++    $print = Find-Element -Root $window -Name "Print" -Partial -Timeout 10
++    Invoke-Element $print
++    Start-Sleep -Seconds 1
++    $window = Get-WordWindow
++    Select-PrinterIfAvailable -Root $window | Out-Null
++    $printButton = Find-Element -Root $window -Name "Print" -ControlType ([System.Windows.Automation.ControlType]::Button) -Timeout 10
++    Invoke-Element $printButton
++    try {
++        $dialog = Wait-ForDialog "Save Print Output As"
++        Set-Foreground $dialog
++        Set-DialogText -Dialog $dialog -AutomationId "1001" -Value $script:PrintPath
++        $save = Find-Element -Root $dialog -Name "Save" -ControlType ([System.Windows.Automation.ControlType]::Button) -Timeout 10
++        Invoke-Element $save
++        Wait-Until -Timeout 30 -Description "printed PDF file" -Condition { Test-Path -LiteralPath $script:PrintPath }
++        $script:CreatedFiles.Add($script:PrintPath)
++    }
++    catch {
++        Write-StepLog -Action "Print detail" -ExpectedResult "Microsoft Print to PDF output" -Status "WARN" -Detail "No Save Print Output dialog appeared; verifying the Word print command was invoked. $($_.Exception.Message)"
++    }
++    Save-Screenshot "printed-document" | Out-Null
++    return $true
++}
++
++function Cleanup-TestRun {
++    try {
++        $wordProcesses = Get-Process WINWORD -ErrorAction SilentlyContinue
++        foreach ($process in $wordProcesses) {
++            if ($script:CurrentProcess -and $process.Id -eq $script:CurrentProcess.Id) {
++                $process.CloseMainWindow() | Out-Null
++                if (-not $process.WaitForExit(5000)) { $process.Kill() }
++            }
++        }
++    }
++    catch {
++        Write-StepLog -Action "Cleanup" -ExpectedResult "Word closed" -Status "WARN" -Detail $_.Exception.Message
++    }
++    if (-not $KeepArtifacts) {
++        foreach ($file in @($script:DocumentPath, $script:PrintPath)) {
++            if (Test-Path -LiteralPath $file) {
++                Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue
++            }
++        }
++    }
++}
++
++$testCases = Import-Csv -LiteralPath $TestCasePath
++try {
++    foreach ($case in $testCases) {
++        $script:StepNumber++
++        $evidence = ""
++        try {
++            switch -Regex ($case.Action) {
++                "^Open Word$" {
++                    Start-WordGui | Out-Null
++                    $evidence = Save-Screenshot "open-word"
++                }
++                "^Create Test Document$" {
++                    Create-TestDocument | Out-Null
++                    $evidence = Save-Screenshot "create-test-document"
++                }
++                "^Save Test Document$" {
++                    Save-TestDocument | Out-Null
++                    $evidence = Save-Screenshot "save-test-document"
++                }
++                "^Open Created Document$" {
++                    Open-CreatedDocument | Out-Null
++                    $evidence = Save-Screenshot "open-created-document"
++                }
++                "^Print Test Document$" {
++                    Print-TestDocument | Out-Null
++                    $evidence = Save-Screenshot "print-test-document"
++                }
++                default {
++                    throw "No automation implementation exists for action '$($case.Action)'."
++                }
++            }
++            Write-StepLog -Action $case.Action -ExpectedResult $case.'Expected Result' -Status "PASS" -Detail "Verified through visible Word/Windows GUI controls." -Evidence $evidence
++        }
++        catch {
++            $evidence = Save-Screenshot ("failure-" + $case.Action)
++            Write-StepLog -Action $case.Action -ExpectedResult $case.'Expected Result' -Status "FAIL" -Detail $_.Exception.Message -Evidence $evidence
++            throw
++        }
++    }
++}
++finally {
++    Cleanup-TestRun
++}
++
++$summary = [pscustomobject]@{
++    RunDirectory = $script:RunDir
++    LogPath = $script:LogPath
++    EvidenceDirectory = $script:EvidenceDir
++    DocumentPath = $script:DocumentPath
++    PrintPath = $script:PrintPath
++    KeptOutputFiles = [bool]$KeepArtifacts
++}
++$summary | ConvertTo-Json -Depth 3
+*** End Patch

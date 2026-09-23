@@ -1,0 +1,31 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+-    [int]$TimeoutSeconds = 30,
++    [int]$TimeoutSeconds = 60,
+@@
+ function Get-WordWindow {
+     Wait-Until -Description "Word main window" -Condition {
+         $root = Get-RootElement
+-        $root.FindFirst(
++        $window = $root.FindFirst(
+             [System.Windows.Automation.TreeScope]::Children,
+             (New-PropertyCondition ([System.Windows.Automation.AutomationElement]::ClassNameProperty) "OpusApp")
+         )
++        if ($window) { return $window }
++        $children = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
++        foreach ($child in $children) {
++            if ($child.Current.Name -like "*Word*" -and $child.Current.ControlType -eq [System.Windows.Automation.ControlType]::Window) {
++                return $child
++            }
++        }
++        if ($script:CurrentProcess) {
++            $script:CurrentProcess.Refresh()
++            if ($script:CurrentProcess.HasExited) {
++                throw "Microsoft Word exited during startup with exit code $($script:CurrentProcess.ExitCode)."
++            }
++        }
++        return $null
+     }
+ }
+*** End Patch

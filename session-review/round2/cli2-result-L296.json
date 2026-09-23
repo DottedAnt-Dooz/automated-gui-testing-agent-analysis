@@ -1,0 +1,737 @@
+{
+  "ok": true,
+  "testCase": "Microsoft Word.csv",
+  "runRoot": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd",
+  "executionId": "20260923_052643_6724",
+  "startedAt": "2026-09-23T05:26:43.7598190-07:00",
+  "finishedAt": "2026-09-23T05:29:36.0970705-07:00",
+  "steps": [
+    {
+      "stepIndex": 1,
+      "action": "Open Word",
+      "expectedResult": "Word Opened",
+      "status": "PASS",
+      "evidence": [
+        "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\01-word-opened.png"
+      ],
+      "commands": [
+        {
+          "index": 1,
+          "command": "state",
+          "arguments": [
+            "-Clear"
+          ],
+          "ok": true,
+          "durationMs": 604,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 2,
+          "command": "start",
+          "arguments": [
+            "-ProcessName",
+            "winword.exe",
+            "-WaitForWindowMs",
+            "30000",
+            "-Maximize"
+          ],
+          "ok": true,
+          "durationMs": 8182,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 3,
+          "command": "focus",
+          "arguments": [
+            "-ProcessName",
+            "WINWORD",
+            "-WindowTitle",
+            "*Word*",
+            "-Maximize",
+            "-TimeoutMs",
+            "30000"
+          ],
+          "ok": true,
+          "durationMs": 3071,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 4,
+          "command": "screenshot",
+          "arguments": [
+            "-OutFile",
+            "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\01-word-opened.png"
+          ],
+          "ok": true,
+          "durationMs": 1101,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        }
+      ],
+      "error": null,
+      "assertions": [
+        {
+          "description": "Microsoft Word must open a visible window.",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "stepIndex": 2,
+      "action": "Create Test Document",
+      "expectedResult": "Test Document Created",
+      "status": "PASS",
+      "evidence": [
+        "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\02-document-created.png"
+      ],
+      "commands": [
+        {
+          "index": 5,
+          "command": "wait-element",
+          "arguments": [
+            "-ControlType",
+            "Document",
+            "-FindFirst",
+            "-TimeoutMs",
+            "1500"
+          ],
+          "ok": true,
+          "durationMs": 2484,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 6,
+          "command": "click",
+          "arguments": [
+            "-Name",
+            "Blank document",
+            "-ControlType",
+            "ListItem",
+            "-FindFirst",
+            "-TimeoutMs",
+            "10000",
+            "-Method",
+            "Mouse"
+          ],
+          "ok": true,
+          "durationMs": 2783,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 7,
+          "command": "wait-element",
+          "arguments": [
+            "-ControlType",
+            "Document",
+            "-FindFirst",
+            "-TimeoutMs",
+            "15000"
+          ],
+          "ok": true,
+          "durationMs": 2834,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 8,
+          "command": "type",
+          "arguments": [
+            "-Text",
+            "Word GUI automation test document\r\nCreated by PoTATo execution 20260923_052643_6724.",
+            "-ControlType",
+            "Document",
+            "-FindFirst",
+            "-TimeoutMs",
+            "5000",
+            "-Focus"
+          ],
+          "ok": true,
+          "durationMs": 4427,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 9,
+          "command": "read",
+          "arguments": [
+            "-ControlType",
+            "Document",
+            "-FindFirst",
+            "-TimeoutMs",
+            "5000"
+          ],
+          "ok": true,
+          "durationMs": 3401,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 10,
+          "command": "screenshot",
+          "arguments": [
+            "-OutFile",
+            "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\02-document-created.png"
+          ],
+          "ok": true,
+          "durationMs": 1093,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        }
+      ],
+      "error": null,
+      "assertions": [
+        {
+          "description": "A new Word document must be visible.",
+          "passed": true
+        },
+        {
+          "description": "The created Word document must contain the typed test text.",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "stepIndex": 3,
+      "action": "Save Test Document",
+      "expectedResult": "Test Document is Saved",
+      "status": "PASS",
+      "evidence": [
+        "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.docx"
+      ],
+      "commands": [
+        {
+          "index": 11,
+          "command": "hotkey",
+          "arguments": [
+            "-Keys",
+            "^s",
+            "-Focus"
+          ],
+          "ok": true,
+          "durationMs": 1068,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 12,
+          "command": "wait-element",
+          "arguments": [
+            "-Name",
+            "Save As",
+            "-TimeoutMs",
+            "10000"
+          ],
+          "ok": true,
+          "durationMs": 1572,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 13,
+          "command": "select",
+          "arguments": [
+            "-Name",
+            "Browse",
+            "-ControlType",
+            "Button",
+            "-FindFirst",
+            "-TimeoutMs",
+            "2000"
+          ],
+          "ok": true,
+          "durationMs": 1004,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 14,
+          "command": "click",
+          "arguments": [
+            "-Name",
+            "Browse",
+            "-FindFirst",
+            "-TimeoutMs",
+            "7000",
+            "-ControlType",
+            "Button"
+          ],
+          "ok": true,
+          "durationMs": 1587,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 15,
+          "command": "wait-element",
+          "arguments": [
+            "-Name",
+            "Save As",
+            "-ControlType",
+            "Window",
+            "-FindFirst",
+            "-TimeoutMs",
+            "10000"
+          ],
+          "ok": true,
+          "durationMs": 2898,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 16,
+          "command": "type",
+          "arguments": [
+            "-Text",
+            "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.docx",
+            "-Focus",
+            "-PreDelete",
+            "-ClearMethod",
+            "Shortcut"
+          ],
+          "ok": true,
+          "durationMs": 6635,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 17,
+          "command": "hotkey",
+          "arguments": [
+            "-Keys",
+            "{ENTER}",
+            "-Focus"
+          ],
+          "ok": true,
+          "durationMs": 683,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 18,
+          "command": "wait-file",
+          "arguments": [
+            "-Path",
+            "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.docx",
+            "-TimeoutMs",
+            "20000",
+            "-MinBytes",
+            "1",
+            "-StableMs",
+            "500"
+          ],
+          "ok": true,
+          "durationMs": 1616,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        }
+      ],
+      "error": null,
+      "assertions": [
+        {
+          "description": "Word Save As screen or dialog must appear.",
+          "passed": true
+        },
+        {
+          "description": "The Save As file dialog must open.",
+          "passed": true
+        },
+        {
+          "description": "File condition must be met: C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.docx",
+          "passed": true
+        },
+        {
+          "description": "The saved Word document must be a DOCX/ZIP file.",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "stepIndex": 4,
+      "action": "Open Created Document",
+      "expectedResult": "Created Document Opened",
+      "status": "PASS",
+      "evidence": [
+        "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\04-document-reopened.png"
+      ],
+      "commands": [
+        {
+          "index": 19,
+          "command": "hotkey",
+          "arguments": [
+            "-Keys",
+            "^w",
+            "-Focus"
+          ],
+          "ok": true,
+          "durationMs": 1053,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 20,
+          "command": "hotkey",
+          "arguments": [
+            "-Keys",
+            "^o",
+            "-Focus"
+          ],
+          "ok": true,
+          "durationMs": 1020,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 21,
+          "command": "click",
+          "arguments": [
+            "-Name",
+            "Browse",
+            "-FindFirst",
+            "-TimeoutMs",
+            "7000",
+            "-ControlType",
+            "Button"
+          ],
+          "ok": true,
+          "durationMs": 1509,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 22,
+          "command": "wait-element",
+          "arguments": [
+            "-Name",
+            "Open",
+            "-ControlType",
+            "Window",
+            "-FindFirst",
+            "-TimeoutMs",
+            "10000"
+          ],
+          "ok": true,
+          "durationMs": 1646,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 23,
+          "command": "type",
+          "arguments": [
+            "-Text",
+            "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.docx",
+            "-Focus",
+            "-PreDelete",
+            "-ClearMethod",
+            "Shortcut"
+          ],
+          "ok": true,
+          "durationMs": 6423,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 24,
+          "command": "hotkey",
+          "arguments": [
+            "-Keys",
+            "{ENTER}",
+            "-Focus"
+          ],
+          "ok": true,
+          "durationMs": 619,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 25,
+          "command": "windows",
+          "arguments": [
+            "-ProcessName",
+            "WINWORD",
+            "-WindowTitle",
+            "*WordGuiTestDocument*",
+            "-TimeoutMs",
+            "15000"
+          ],
+          "ok": true,
+          "durationMs": 2837,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 26,
+          "command": "wait-element",
+          "arguments": [
+            "-ControlType",
+            "Document",
+            "-FindFirst",
+            "-TimeoutMs",
+            "15000"
+          ],
+          "ok": true,
+          "durationMs": 2727,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 27,
+          "command": "screenshot",
+          "arguments": [
+            "-OutFile",
+            "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\04-document-reopened.png"
+          ],
+          "ok": true,
+          "durationMs": 810,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        }
+      ],
+      "error": null,
+      "assertions": [
+        {
+          "description": "The Open file dialog must appear.",
+          "passed": true
+        },
+        {
+          "description": "The created Word document must reopen in Microsoft Word.",
+          "passed": true
+        },
+        {
+          "description": "The reopened Word document must show an editable document surface.",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "stepIndex": 5,
+      "action": "Print Test Document",
+      "expectedResult": "Test Document is Printed",
+      "status": "PASS",
+      "evidence": [
+        "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\05-print-ready.png",
+        "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.pdf"
+      ],
+      "commands": [
+        {
+          "index": 28,
+          "command": "hotkey",
+          "arguments": [
+            "-Keys",
+            "^p",
+            "-Focus"
+          ],
+          "ok": true,
+          "durationMs": 704,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 29,
+          "command": "select",
+          "arguments": [
+            "-Name",
+            "Print",
+            "-ControlType",
+            "Button",
+            "-FindFirst",
+            "-TimeoutMs",
+            "10000"
+          ],
+          "ok": true,
+          "durationMs": 2261,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 30,
+          "command": "screenshot",
+          "arguments": [
+            "-OutFile",
+            "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\05-print-ready.png"
+          ],
+          "ok": true,
+          "durationMs": 822,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 31,
+          "command": "click",
+          "arguments": [
+            "-Name",
+            "Print",
+            "-ControlType",
+            "Button",
+            "-FindFirst",
+            "-TimeoutMs",
+            "7000",
+            "-Method",
+            "Invoke"
+          ],
+          "ok": true,
+          "durationMs": 1676,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 32,
+          "command": "wait-element",
+          "arguments": [
+            "-Name",
+            "Save Print Output As",
+            "-ControlType",
+            "Window",
+            "-FindFirst",
+            "-TimeoutMs",
+            "15000"
+          ],
+          "ok": true,
+          "durationMs": 2880,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 33,
+          "command": "type",
+          "arguments": [
+            "-Text",
+            "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.pdf",
+            "-Focus",
+            "-PreDelete",
+            "-ClearMethod",
+            "Shortcut"
+          ],
+          "ok": true,
+          "durationMs": 6515,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 34,
+          "command": "hotkey",
+          "arguments": [
+            "-Keys",
+            "{ENTER}",
+            "-Focus"
+          ],
+          "ok": true,
+          "durationMs": 549,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        },
+        {
+          "index": 35,
+          "command": "wait-file",
+          "arguments": [
+            "-Path",
+            "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.pdf",
+            "-TimeoutMs",
+            "25000",
+            "-MinBytes",
+            "1",
+            "-StableMs",
+            "500"
+          ],
+          "ok": true,
+          "durationMs": 3413,
+          "logPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+          "error": null
+        }
+      ],
+      "error": null,
+      "assertions": [
+        {
+          "description": "The Word Print command must be visible.",
+          "passed": true
+        },
+        {
+          "description": "The Microsoft Print to PDF save dialog must appear.",
+          "passed": true
+        },
+        {
+          "description": "File condition must be met: C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.pdf",
+          "passed": true
+        },
+        {
+          "description": "The printed output must be a PDF file.",
+          "passed": true
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0
+  },
+  "artifacts": {
+    "resultPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\results\\result.json",
+    "evidenceRoot": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence",
+    "executionEvidenceRoot": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724",
+    "commandLogPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\logs\\potato-commands-20260923_052643_6724.jsonl",
+    "cleanup": [
+      {
+        "action": "close-window",
+        "target": "WINWORD",
+        "ok": true,
+        "error": null
+      },
+      {
+        "action": "preserve-run-artifact",
+        "target": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.docx",
+        "ok": true,
+        "error": null
+      },
+      {
+        "action": "preserve-run-artifact",
+        "target": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.pdf",
+        "ok": true,
+        "error": null
+      },
+      {
+        "action": "clear-potato-state",
+        "target": "session",
+        "ok": true,
+        "error": null
+      }
+    ],
+    "documentPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.docx",
+    "printedPdfPath": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.pdf"
+  },
+  "cleanup": [
+    {
+      "action": "close-window",
+      "target": "WINWORD",
+      "ok": true,
+      "error": null
+    },
+    {
+      "action": "preserve-run-artifact",
+      "target": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.docx",
+      "ok": true,
+      "error": null
+    },
+    {
+      "action": "preserve-run-artifact",
+      "target": "C:\\diplomamunka\\automated-gui-testing-agent-framework\\runs\\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\\evidence\\20260923_052643_6724\\WordGuiTestDocument.pdf",
+      "ok": true,
+      "error": null
+    },
+    {
+      "action": "clear-potato-state",
+      "target": "session",
+      "ok": true,
+      "error": null
+    }
+  ],
+  "coverageOk": true,
+  "cleanupOk": true,
+  "assertionsOk": true
+}

@@ -1,0 +1,13 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+-        if ($script:CurrentProcess) {
+-            $script:CurrentProcess.Refresh()
+-            if ($script:CurrentProcess.HasExited) {
+-                throw "Microsoft Word exited during startup with exit code $($script:CurrentProcess.ExitCode)."
+-            }
+-        }
+         return $null
+     }
+ }
+*** End Patch

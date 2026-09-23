@@ -1,0 +1,9 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+-    $fileTab = Find-Element -Root $window -Name "File" -AutomationId "FileTabButton" -Timeout 5
++    $fileTab = Find-Element -Root $window -AutomationId "FileTabButton" -Timeout 5
+@@
+-    $fileTab = Find-Element -Root $window -Name "File" -AutomationId "FileTabButton" -Timeout 5
++    $fileTab = Find-Element -Root $window -AutomationId "FileTabButton" -Timeout 5
+*** End Patch

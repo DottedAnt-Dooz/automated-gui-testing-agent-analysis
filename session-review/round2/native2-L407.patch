@@ -1,0 +1,20 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+ function Print-TestDocument {
+@@
+-    $printButton = Find-Element -Root $window -Name "Print" -ControlType ([System.Windows.Automation.ControlType]::Button) -Timeout 10
++    $printButton = Wait-Until -Timeout 10 -Description "large Print button" -Condition {
++        $buttons = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
++        foreach ($candidate in $buttons) {
++            if ($candidate.Current.Name -ne "Print") { continue }
++            if ($candidate.Current.ControlType -ne [System.Windows.Automation.ControlType]::Button) { continue }
++            $rect = $candidate.Current.BoundingRectangle
++            if (-not $rect.IsEmpty -and $rect.Width -ge 60 -and $rect.Height -ge 60 -and $rect.Left -gt 150) {
++                return $candidate
++            }
++        }
++        return $null
++    }
+     Click-Element $printButton
+*** End Patch

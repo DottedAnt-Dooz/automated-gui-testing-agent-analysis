@@ -1,0 +1,24 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+   [DllImport("user32.dll", SetLastError=true)]
+   public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
++  [DllImport("user32.dll")]
++  public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+   [DllImport("user32.dll")]
+   public static extern bool SetCursorPos(int X, int Y);
+@@
+     [NativeInput]::SetCursorPos($X, $Y) | Out-Null
+     Start-Sleep -Milliseconds 100
+-    $down = New-Object NativeInput+INPUT
+-    $down.type = 0
+-    $down.U.mi.dwFlags = 0x0002
+-    $up = New-Object NativeInput+INPUT
+-    $up.type = 0
+-    $up.U.mi.dwFlags = 0x0004
+-    [NativeInput]::SendInput(2, @($down, $up), [Runtime.InteropServices.Marshal]::SizeOf($down)) | Out-Null
++    [NativeInput]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero)
++    [NativeInput]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero)
+     Start-Sleep -Milliseconds 250
+ }
+*** End Patch

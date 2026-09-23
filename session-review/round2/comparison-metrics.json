@@ -1,0 +1,1378 @@
+[
+  {
+    "file": "native.jsonl",
+    "sha256": "75571d8c73dea697641d47615c10cedc32d651c9e912f22456957d0912fb722e",
+    "source_lines": 565,
+    "models": [
+      "gpt-5.5"
+    ],
+    "discovered_script_names": [
+      "Test-WordGui.ps1"
+    ],
+    "elapsed_seconds": 1897.618,
+    "calls": {
+      "shell_command": 83,
+      "apply_patch": 19,
+      "view_image": 9
+    },
+    "final_token_usage": {
+      "input_tokens": 6087382,
+      "cached_input_tokens": 5848064,
+      "output_tokens": 34063,
+      "reasoning_output_tokens": 8175,
+      "total_tokens": 6121445
+    },
+    "uncached_input_tokens": 239318,
+    "script_invocation_lines": [
+      112,
+      124,
+      157,
+      198,
+      226,
+      255,
+      282,
+      309,
+      329,
+      358,
+      379,
+      410,
+      438,
+      471,
+      502,
+      523,
+      550
+    ],
+    "framework_or_cli_read_lines": [],
+    "script_attempts": [
+      {
+        "call_line": 112,
+        "output_line": 113,
+        "wall_seconds": 1.9,
+        "exit_code": 1
+      },
+      {
+        "call_line": 124,
+        "output_line": 125,
+        "wall_seconds": 61.5,
+        "exit_code": 1
+      },
+      {
+        "call_line": 157,
+        "output_line": 158,
+        "wall_seconds": 41.1,
+        "exit_code": 1
+      },
+      {
+        "call_line": 198,
+        "output_line": 199,
+        "wall_seconds": 38.1,
+        "exit_code": 1
+      },
+      {
+        "call_line": 226,
+        "output_line": 227,
+        "wall_seconds": 51.2,
+        "exit_code": 1
+      },
+      {
+        "call_line": 255,
+        "output_line": 256,
+        "wall_seconds": 59.4,
+        "exit_code": 1
+      },
+      {
+        "call_line": 282,
+        "output_line": 283,
+        "wall_seconds": 66.6,
+        "exit_code": 1
+      },
+      {
+        "call_line": 309,
+        "output_line": 310,
+        "wall_seconds": 57.9,
+        "exit_code": 1
+      },
+      {
+        "call_line": 329,
+        "output_line": 330,
+        "wall_seconds": 59.5,
+        "exit_code": 1
+      },
+      {
+        "call_line": 358,
+        "output_line": 359,
+        "wall_seconds": 29.7,
+        "exit_code": 1
+      },
+      {
+        "call_line": 379,
+        "output_line": 380,
+        "wall_seconds": 35.0,
+        "exit_code": 1
+      },
+      {
+        "call_line": 410,
+        "output_line": 411,
+        "wall_seconds": 81.5,
+        "exit_code": 1
+      },
+      {
+        "call_line": 438,
+        "output_line": 439,
+        "wall_seconds": 69.5,
+        "exit_code": 1
+      },
+      {
+        "call_line": 471,
+        "output_line": 472,
+        "wall_seconds": 63.0,
+        "exit_code": 1
+      },
+      {
+        "call_line": 502,
+        "output_line": 503,
+        "wall_seconds": 61.3,
+        "exit_code": 0
+      },
+      {
+        "call_line": 523,
+        "output_line": 524,
+        "wall_seconds": 62.6,
+        "exit_code": 0
+      },
+      {
+        "call_line": 550,
+        "output_line": 551,
+        "wall_seconds": 57.8,
+        "exit_code": 0
+      }
+    ],
+    "direct_cli_calls": [],
+    "reported_generated_attempts": [],
+    "median_direct_cli_overhead_seconds": null,
+    "largest_tool_outputs": [
+      {
+        "line": 90,
+        "chars": 7912
+      },
+      {
+        "line": 68,
+        "chars": 3904
+      },
+      {
+        "line": 503,
+        "chars": 3138
+      },
+      {
+        "line": 524,
+        "chars": 3138
+      },
+      {
+        "line": 551,
+        "chars": 3138
+      }
+    ]
+  },
+  {
+    "file": "native+cheating.jsonl",
+    "sha256": "5f266b6aa19bb95fd8156b60fcebcccda42ca3fddd9979c6f42998c4d5444e01",
+    "source_lines": 127,
+    "models": [
+      "gpt-5.5"
+    ],
+    "discovered_script_names": [
+      "Run-WordGuiTest.ps1"
+    ],
+    "elapsed_seconds": 469.469,
+    "calls": {
+      "shell_command": 19,
+      "apply_patch": 5,
+      "view_image": 2
+    },
+    "final_token_usage": {
+      "input_tokens": 637452,
+      "cached_input_tokens": 583680,
+      "output_tokens": 9492,
+      "reasoning_output_tokens": 1852,
+      "total_tokens": 646944
+    },
+    "uncached_input_tokens": 53772,
+    "script_invocation_lines": [
+      42,
+      66,
+      91,
+      111
+    ],
+    "framework_or_cli_read_lines": [],
+    "script_attempts": [
+      {
+        "call_line": 42,
+        "output_line": 43,
+        "wall_seconds": 63.5,
+        "exit_code": 1
+      },
+      {
+        "call_line": 66,
+        "output_line": 67,
+        "wall_seconds": 85.6,
+        "exit_code": 1
+      },
+      {
+        "call_line": 91,
+        "output_line": 92,
+        "wall_seconds": 38.9,
+        "exit_code": 1
+      },
+      {
+        "call_line": 111,
+        "output_line": 112,
+        "wall_seconds": 39.1,
+        "exit_code": 0
+      }
+    ],
+    "direct_cli_calls": [],
+    "reported_generated_attempts": [],
+    "median_direct_cli_overhead_seconds": null,
+    "largest_tool_outputs": [
+      {
+        "line": 112,
+        "chars": 6726
+      },
+      {
+        "line": 75,
+        "chars": 6348
+      },
+      {
+        "line": 100,
+        "chars": 6110
+      },
+      {
+        "line": 51,
+        "chars": 3721
+      },
+      {
+        "line": 99,
+        "chars": 1260
+      }
+    ]
+  },
+  {
+    "file": "cli+framework.jsonl",
+    "sha256": "b9b54f352f7de39ad0e734275e97a13e0ad6734e9a71f126bc63723502fee0c5",
+    "source_lines": 266,
+    "models": [
+      "gpt-5.5"
+    ],
+    "discovered_script_names": [
+      "MicrosoftWord.Generated.ps1"
+    ],
+    "elapsed_seconds": 681.295,
+    "calls": {
+      "shell_command": 65,
+      "apply_patch": 3
+    },
+    "final_token_usage": {
+      "input_tokens": 3275548,
+      "cached_input_tokens": 3159552,
+      "output_tokens": 13374,
+      "reasoning_output_tokens": 2440,
+      "total_tokens": 3288922
+    },
+    "uncached_input_tokens": 115996,
+    "script_invocation_lines": [
+      223,
+      236,
+      249
+    ],
+    "framework_or_cli_read_lines": [
+      21,
+      22,
+      23,
+      24,
+      25,
+      33,
+      34,
+      35,
+      36,
+      45,
+      46,
+      55,
+      56,
+      57,
+      58,
+      65,
+      66,
+      67,
+      72,
+      73,
+      255
+    ],
+    "script_attempts": [
+      {
+        "call_line": 223,
+        "output_line": 224,
+        "wall_seconds": 0.9,
+        "exit_code": 1
+      },
+      {
+        "call_line": 236,
+        "output_line": 237,
+        "wall_seconds": 66.5,
+        "exit_code": 0
+      },
+      {
+        "call_line": 249,
+        "output_line": 250,
+        "wall_seconds": 77.7,
+        "exit_code": 0
+      }
+    ],
+    "direct_cli_calls": [
+      {
+        "call_line": 47,
+        "output_line": 50,
+        "wall_seconds": 1.5,
+        "ok": true,
+        "command": "state",
+        "duration_ms": 372,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 80,
+        "output_line": 82,
+        "wall_seconds": 2.5,
+        "ok": true,
+        "command": "start",
+        "duration_ms": 1652,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 86,
+        "output_line": 88,
+        "wall_seconds": 2.2,
+        "ok": true,
+        "command": "observe",
+        "duration_ms": 1293,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 87,
+        "output_line": 89,
+        "wall_seconds": 1.8,
+        "ok": true,
+        "command": "screenshot",
+        "duration_ms": 801,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 94,
+        "output_line": 95,
+        "wall_seconds": 1.7,
+        "ok": true,
+        "command": "click",
+        "duration_ms": 1140,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 99,
+        "output_line": 101,
+        "wall_seconds": 2.6,
+        "ok": true,
+        "command": "observe",
+        "duration_ms": 1854,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 105,
+        "output_line": 107,
+        "wall_seconds": 1.4,
+        "ok": true,
+        "command": "type",
+        "duration_ms": 670,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 106,
+        "output_line": 108,
+        "wall_seconds": 1.1,
+        "ok": true,
+        "command": "screenshot",
+        "duration_ms": 509,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 113,
+        "output_line": 114,
+        "wall_seconds": 1.2,
+        "ok": true,
+        "command": "hotkey",
+        "duration_ms": 537,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 116,
+        "output_line": 117,
+        "wall_seconds": 2.3,
+        "ok": true,
+        "command": "observe",
+        "duration_ms": 1745,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 122,
+        "output_line": 124,
+        "wall_seconds": 2.7,
+        "ok": true,
+        "command": "click",
+        "duration_ms": 2050,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 129,
+        "output_line": 130,
+        "wall_seconds": 1.6,
+        "ok": true,
+        "command": "type",
+        "duration_ms": 937,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 132,
+        "output_line": 133,
+        "wall_seconds": 3.5,
+        "ok": true,
+        "command": "click",
+        "duration_ms": 2541,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 135,
+        "output_line": 136,
+        "wall_seconds": 0.8,
+        "ok": true,
+        "command": "wait-file",
+        "duration_ms": 261,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 141,
+        "output_line": 142,
+        "wall_seconds": 1.2,
+        "ok": true,
+        "command": "close-window",
+        "duration_ms": 509,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 150,
+        "output_line": 151,
+        "wall_seconds": 5.2,
+        "ok": true,
+        "command": "start",
+        "duration_ms": 3023,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 153,
+        "output_line": 154,
+        "wall_seconds": 2.1,
+        "ok": true,
+        "command": "observe",
+        "duration_ms": 1428,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 159,
+        "output_line": 160,
+        "wall_seconds": 1.2,
+        "ok": true,
+        "command": "hotkey",
+        "duration_ms": 620,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 162,
+        "output_line": 163,
+        "wall_seconds": 2.1,
+        "ok": true,
+        "command": "observe",
+        "duration_ms": 1405,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 166,
+        "output_line": 167,
+        "wall_seconds": 1.9,
+        "ok": true,
+        "command": "select",
+        "duration_ms": 1331,
+        "error": null,
+        "count": 1
+      },
+      {
+        "call_line": 170,
+        "output_line": 171,
+        "wall_seconds": 4.2,
+        "ok": true,
+        "command": "select",
+        "duration_ms": 3628,
+        "error": null,
+        "count": 0
+      },
+      {
+        "call_line": 174,
+        "output_line": 175,
+        "wall_seconds": 4.6,
+        "ok": true,
+        "command": "select",
+        "duration_ms": 4013,
+        "error": null,
+        "count": 0
+      },
+      {
+        "call_line": 178,
+        "output_line": 180,
+        "wall_seconds": 2.2,
+        "ok": true,
+        "command": "select",
+        "duration_ms": 1413,
+        "error": null,
+        "count": 8
+      },
+      {
+        "call_line": 179,
+        "output_line": 181,
+        "wall_seconds": 2.3,
+        "ok": true,
+        "command": "select",
+        "duration_ms": 1621,
+        "error": null,
+        "count": 26
+      },
+      {
+        "call_line": 186,
+        "output_line": 187,
+        "wall_seconds": 1.7,
+        "ok": true,
+        "command": "click",
+        "duration_ms": 1091,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 189,
+        "output_line": 190,
+        "wall_seconds": 1.7,
+        "ok": true,
+        "command": "select",
+        "duration_ms": 1131,
+        "error": null,
+        "count": 1
+      },
+      {
+        "call_line": 192,
+        "output_line": 193,
+        "wall_seconds": 2.2,
+        "ok": true,
+        "command": "click",
+        "duration_ms": 1165,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 197,
+        "output_line": 198,
+        "wall_seconds": 2.6,
+        "ok": true,
+        "command": "click",
+        "duration_ms": 1805,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 200,
+        "output_line": 201,
+        "wall_seconds": 2.6,
+        "ok": true,
+        "command": "observe",
+        "duration_ms": 1916,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 204,
+        "output_line": 205,
+        "wall_seconds": 1.8,
+        "ok": true,
+        "command": "type",
+        "duration_ms": 1110,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 207,
+        "output_line": 208,
+        "wall_seconds": 2.9,
+        "ok": true,
+        "command": "click",
+        "duration_ms": 1958,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 210,
+        "output_line": 211,
+        "wall_seconds": 1.0,
+        "ok": true,
+        "command": "wait-file",
+        "duration_ms": 301,
+        "error": null,
+        "count": null
+      }
+    ],
+    "reported_generated_attempts": [
+      {
+        "call_line": 236,
+        "output_line": 237,
+        "wall_seconds": 66.5,
+        "ok": false,
+        "summary": {
+          "total": 5,
+          "passed": 2,
+          "failed": 3,
+          "skipped": 0
+        },
+        "result_chars": 19071
+      },
+      {
+        "call_line": 249,
+        "output_line": 250,
+        "wall_seconds": 77.7,
+        "ok": true,
+        "summary": {
+          "total": 5,
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        "result_chars": 38512
+      }
+    ],
+    "median_direct_cli_overhead_seconds": 0.687,
+    "largest_tool_outputs": [
+      {
+        "line": 250,
+        "chars": 38512
+      },
+      {
+        "line": 117,
+        "chars": 27244
+      },
+      {
+        "line": 30,
+        "chars": 25579
+      },
+      {
+        "line": 201,
+        "chars": 25476
+      },
+      {
+        "line": 237,
+        "chars": 19071
+      }
+    ]
+  },
+  {
+    "file": "native2.jsonl",
+    "sha256": "3d904d119edd0267377264e387f441b9e60e955edc82bff16d09b91e9d5b8581",
+    "source_lines": 437,
+    "models": [
+      "gpt-5.5"
+    ],
+    "discovered_script_names": [
+      "Invoke-WordGuiTest.ps1"
+    ],
+    "elapsed_seconds": 2227.576,
+    "calls": {
+      "shell_command": 61,
+      "apply_patch": 16,
+      "view_image": 9
+    },
+    "final_token_usage": {
+      "input_tokens": 3830508,
+      "cached_input_tokens": 3686016,
+      "output_tokens": 27063,
+      "reasoning_output_tokens": 5931,
+      "total_tokens": 3857571
+    },
+    "uncached_input_tokens": 144492,
+    "script_invocation_lines": [
+      71,
+      83,
+      112,
+      139,
+      151,
+      178,
+      213,
+      225,
+      249,
+      292,
+      305,
+      327,
+      360,
+      387,
+      414
+    ],
+    "framework_or_cli_read_lines": [],
+    "script_attempts": [
+      {
+        "call_line": 71,
+        "output_line": 72,
+        "wall_seconds": 13.5,
+        "exit_code": 1
+      },
+      {
+        "call_line": 83,
+        "output_line": 84,
+        "wall_seconds": 64.8,
+        "exit_code": 1
+      },
+      {
+        "call_line": 112,
+        "output_line": 113,
+        "wall_seconds": 33.3,
+        "exit_code": 1
+      },
+      {
+        "call_line": 139,
+        "output_line": 140,
+        "wall_seconds": 24.8,
+        "exit_code": 1
+      },
+      {
+        "call_line": 151,
+        "output_line": 152,
+        "wall_seconds": 76.3,
+        "exit_code": 1
+      },
+      {
+        "call_line": 178,
+        "output_line": 179,
+        "wall_seconds": 94.0,
+        "exit_code": 1
+      },
+      {
+        "call_line": 213,
+        "output_line": 214,
+        "wall_seconds": 48.9,
+        "exit_code": 1
+      },
+      {
+        "call_line": 225,
+        "output_line": 226,
+        "wall_seconds": 52.4,
+        "exit_code": 1
+      },
+      {
+        "call_line": 249,
+        "output_line": 250,
+        "wall_seconds": 79.9,
+        "exit_code": 1
+      },
+      {
+        "call_line": 292,
+        "output_line": 293,
+        "wall_seconds": 59.4,
+        "exit_code": 1
+      },
+      {
+        "call_line": 305,
+        "output_line": 306,
+        "wall_seconds": 102.3,
+        "exit_code": 1
+      },
+      {
+        "call_line": 327,
+        "output_line": 328,
+        "wall_seconds": 71.7,
+        "exit_code": 1
+      },
+      {
+        "call_line": 360,
+        "output_line": 361,
+        "wall_seconds": 162.2,
+        "exit_code": 0
+      },
+      {
+        "call_line": 387,
+        "output_line": 388,
+        "wall_seconds": 159.6,
+        "exit_code": 0
+      },
+      {
+        "call_line": 414,
+        "output_line": 415,
+        "wall_seconds": 88.7,
+        "exit_code": 0
+      }
+    ],
+    "direct_cli_calls": [],
+    "reported_generated_attempts": [],
+    "median_direct_cli_overhead_seconds": null,
+    "largest_tool_outputs": [
+      {
+        "line": 12,
+        "chars": 14326
+      },
+      {
+        "line": 195,
+        "chars": 2528
+      },
+      {
+        "line": 259,
+        "chars": 1674
+      },
+      {
+        "line": 334,
+        "chars": 1674
+      },
+      {
+        "line": 312,
+        "chars": 1671
+      }
+    ]
+  },
+  {
+    "file": "cli2.jsonl",
+    "sha256": "e688d5c4820b45f4147273afdbd77eee0e36e1c84e107cf8599c32e7e1f5d787",
+    "source_lines": 302,
+    "models": [
+      "gpt-5.5"
+    ],
+    "discovered_script_names": [
+      "MicrosoftWord.Generated.ps1"
+    ],
+    "elapsed_seconds": 956.566,
+    "calls": {
+      "shell_command": 61,
+      "view_image": 5,
+      "apply_patch": 2
+    },
+    "final_token_usage": {
+      "input_tokens": 3804818,
+      "cached_input_tokens": 3633920,
+      "output_tokens": 14212,
+      "reasoning_output_tokens": 1725,
+      "total_tokens": 3819030
+    },
+    "uncached_input_tokens": 170898,
+    "script_invocation_lines": [
+      271,
+      295
+    ],
+    "framework_or_cli_read_lines": [
+      21,
+      22,
+      23,
+      24,
+      25,
+      35,
+      36,
+      37,
+      38,
+      245
+    ],
+    "script_attempts": [
+      {
+        "call_line": 271,
+        "output_line": 272,
+        "wall_seconds": 120.8,
+        "exit_code": 0
+      },
+      {
+        "call_line": 295,
+        "output_line": 296,
+        "wall_seconds": 183.5,
+        "exit_code": 0
+      }
+    ],
+    "direct_cli_calls": [
+      {
+        "call_line": 53,
+        "output_line": 54,
+        "wall_seconds": 1.6,
+        "ok": true,
+        "command": "state",
+        "duration_ms": 515,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 58,
+        "output_line": 59,
+        "wall_seconds": 7.1,
+        "ok": true,
+        "command": "start",
+        "duration_ms": 6058,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 63,
+        "output_line": 64,
+        "wall_seconds": 2.5,
+        "ok": true,
+        "command": "focus",
+        "duration_ms": 1517,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 66,
+        "output_line": 67,
+        "wall_seconds": 2.3,
+        "ok": false,
+        "command": "observe",
+        "duration_ms": 1365,
+        "error": {
+          "message": "Cannot convert value \"\u221e\" to type \"System.Int32\". Error: \"Value was either too large or too small for an Int32.\"",
+          "type": "System.Management.Automation.RuntimeException",
+          "category": "InvalidArgument"
+        },
+        "count": null
+      },
+      {
+        "call_line": 72,
+        "output_line": 73,
+        "wall_seconds": 11.6,
+        "ok": true,
+        "command": "select",
+        "duration_ms": 10766,
+        "error": null,
+        "count": 0
+      },
+      {
+        "call_line": 77,
+        "output_line": 79,
+        "wall_seconds": 3.2,
+        "ok": true,
+        "command": "windows",
+        "duration_ms": 1622,
+        "error": null,
+        "count": 1
+      },
+      {
+        "call_line": 78,
+        "output_line": 80,
+        "wall_seconds": 2.8,
+        "ok": true,
+        "command": "screenshot",
+        "duration_ms": 1237,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 90,
+        "output_line": 91,
+        "wall_seconds": 6.6,
+        "ok": true,
+        "command": "click",
+        "duration_ms": 5057,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 93,
+        "output_line": 94,
+        "wall_seconds": 4.9,
+        "ok": true,
+        "command": "wait-element",
+        "duration_ms": 2996,
+        "error": null,
+        "count": 1
+      },
+      {
+        "call_line": 98,
+        "output_line": 99,
+        "wall_seconds": 7.9,
+        "ok": true,
+        "command": "type",
+        "duration_ms": 6059,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 103,
+        "output_line": 104,
+        "wall_seconds": 3.9,
+        "ok": true,
+        "command": "hotkey",
+        "duration_ms": 1684,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 106,
+        "output_line": 107,
+        "wall_seconds": 2.0,
+        "ok": true,
+        "command": "screenshot",
+        "duration_ms": 988,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 117,
+        "output_line": 118,
+        "wall_seconds": 8.0,
+        "ok": false,
+        "command": "click",
+        "duration_ms": 6806,
+        "error": {
+          "message": "No matching element was found.",
+          "type": "System.Management.Automation.RuntimeException",
+          "category": "OperationStopped"
+        },
+        "count": null
+      },
+      {
+        "call_line": 121,
+        "output_line": 122,
+        "wall_seconds": 3.2,
+        "ok": true,
+        "command": "select",
+        "duration_ms": 1387,
+        "error": null,
+        "count": 1
+      },
+      {
+        "call_line": 124,
+        "output_line": 125,
+        "wall_seconds": 2.7,
+        "ok": true,
+        "command": "click",
+        "duration_ms": 1684,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 129,
+        "output_line": 130,
+        "wall_seconds": 2.8,
+        "ok": true,
+        "command": "wait-element",
+        "duration_ms": 1554,
+        "error": null,
+        "count": 1
+      },
+      {
+        "call_line": 132,
+        "output_line": 133,
+        "wall_seconds": 1.8,
+        "ok": true,
+        "command": "select",
+        "duration_ms": 1061,
+        "error": null,
+        "count": 1
+      },
+      {
+        "call_line": 136,
+        "output_line": 137,
+        "wall_seconds": 5.2,
+        "ok": true,
+        "command": "select",
+        "duration_ms": 4199,
+        "error": null,
+        "count": 0
+      },
+      {
+        "call_line": 140,
+        "output_line": 141,
+        "wall_seconds": 3.1,
+        "ok": false,
+        "command": "select",
+        "duration_ms": 2273,
+        "error": {
+          "message": "Cannot convert value \"\u221e\" to type \"System.Int32\". Error: \"Value was either too large or too small for an Int32.\"",
+          "type": "System.Management.Automation.RuntimeException",
+          "category": "InvalidArgument"
+        },
+        "count": null
+      },
+      {
+        "call_line": 146,
+        "output_line": 147,
+        "wall_seconds": 7.2,
+        "ok": true,
+        "command": "type",
+        "duration_ms": 6330,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 151,
+        "output_line": 152,
+        "wall_seconds": 6.7,
+        "ok": false,
+        "command": "click",
+        "duration_ms": 5934,
+        "error": {
+          "message": "No matching element was found.",
+          "type": "System.Management.Automation.RuntimeException",
+          "category": "OperationStopped"
+        },
+        "count": null
+      },
+      {
+        "call_line": 155,
+        "output_line": 156,
+        "wall_seconds": 1.3,
+        "ok": true,
+        "command": "hotkey",
+        "duration_ms": 507,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 158,
+        "output_line": 159,
+        "wall_seconds": 1.6,
+        "ok": true,
+        "command": "wait-file",
+        "duration_ms": 914,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 164,
+        "output_line": 165,
+        "wall_seconds": 1.4,
+        "ok": true,
+        "command": "hotkey",
+        "duration_ms": 541,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 169,
+        "output_line": 170,
+        "wall_seconds": 1.4,
+        "ok": true,
+        "command": "hotkey",
+        "duration_ms": 738,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 172,
+        "output_line": 173,
+        "wall_seconds": 1.6,
+        "ok": true,
+        "command": "screenshot",
+        "duration_ms": 915,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 181,
+        "output_line": 182,
+        "wall_seconds": 2.8,
+        "ok": true,
+        "command": "click",
+        "duration_ms": 1846,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 184,
+        "output_line": 185,
+        "wall_seconds": 3.1,
+        "ok": true,
+        "command": "wait-element",
+        "duration_ms": 1556,
+        "error": null,
+        "count": 1
+      },
+      {
+        "call_line": 189,
+        "output_line": 190,
+        "wall_seconds": 7.5,
+        "ok": true,
+        "command": "type",
+        "duration_ms": 6525,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 198,
+        "output_line": 200,
+        "wall_seconds": 2.6,
+        "ok": true,
+        "command": "windows",
+        "duration_ms": 1635,
+        "error": null,
+        "count": 1
+      },
+      {
+        "call_line": 199,
+        "output_line": 201,
+        "wall_seconds": 2.0,
+        "ok": true,
+        "command": "screenshot",
+        "duration_ms": 988,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 206,
+        "output_line": 207,
+        "wall_seconds": 2.1,
+        "ok": true,
+        "command": "hotkey",
+        "duration_ms": 1141,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 211,
+        "output_line": 212,
+        "wall_seconds": 2.9,
+        "ok": true,
+        "command": "screenshot",
+        "duration_ms": 1207,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 222,
+        "output_line": 223,
+        "wall_seconds": 4.1,
+        "ok": true,
+        "command": "click",
+        "duration_ms": 2710,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 225,
+        "output_line": 226,
+        "wall_seconds": 3.0,
+        "ok": true,
+        "command": "wait-element",
+        "duration_ms": 1878,
+        "error": null,
+        "count": 1
+      },
+      {
+        "call_line": 228,
+        "output_line": 229,
+        "wall_seconds": 7.5,
+        "ok": true,
+        "command": "type",
+        "duration_ms": 6474,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 231,
+        "output_line": 232,
+        "wall_seconds": 1.3,
+        "ok": true,
+        "command": "hotkey",
+        "duration_ms": 571,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 234,
+        "output_line": 235,
+        "wall_seconds": 1.8,
+        "ok": true,
+        "command": "wait-file",
+        "duration_ms": 1002,
+        "error": null,
+        "count": null
+      },
+      {
+        "call_line": 240,
+        "output_line": 241,
+        "wall_seconds": 2.2,
+        "ok": true,
+        "command": "close-window",
+        "duration_ms": 1271,
+        "error": null,
+        "count": null
+      }
+    ],
+    "reported_generated_attempts": [
+      {
+        "call_line": 271,
+        "output_line": 272,
+        "wall_seconds": 120.8,
+        "ok": false,
+        "summary": {
+          "total": 5,
+          "passed": 3,
+          "failed": 2,
+          "skipped": 0
+        },
+        "result_chars": 17029
+      },
+      {
+        "call_line": 295,
+        "output_line": 296,
+        "wall_seconds": 183.5,
+        "ok": true,
+        "summary": {
+          "total": 5,
+          "passed": 5,
+          "failed": 0,
+          "skipped": 0
+        },
+        "result_chars": 18829
+      }
+    ],
+    "median_direct_cli_overhead_seconds": 1.001,
+    "largest_tool_outputs": [
+      {
+        "line": 42,
+        "chars": 40092
+      },
+      {
+        "line": 30,
+        "chars": 22257
+      },
+      {
+        "line": 296,
+        "chars": 18829
+      },
+      {
+        "line": 272,
+        "chars": 17029
+      },
+      {
+        "line": 41,
+        "chars": 9437
+      }
+    ]
+  }
+]

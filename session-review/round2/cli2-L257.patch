@@ -1,0 +1,203 @@
+*** Begin Patch
+*** Add File: C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\generated\MicrosoftWord.Generated.ps1
++[CmdletBinding()]
++param(
++    [string] $PotatoCliPath,
++    [string] $TestCaseCsv,
++    [string] $RunRoot,
++    [string] $FrameworkRoot
++)
++
++$runtimeCandidates = @()
++if ($FrameworkRoot) {
++    $runtimeCandidates += (Join-Path -Path $FrameworkRoot -ChildPath 'Framework\GeneratedScriptRuntime.ps1')
++}
++$probe = $PSScriptRoot
++for ($i = 0; $i -lt 8 -and $probe; $i++) {
++    $runtimeCandidates += (Join-Path -Path $probe -ChildPath 'Framework\GeneratedScriptRuntime.ps1')
++    $probe = Split-Path -Parent $probe
++}
++$runtimePath = @($runtimeCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1)[0]
++if (-not $runtimePath) {
++    throw 'Generated script runtime was not found.'
++}
++$FrameworkRoot = Split-Path -Parent (Split-Path -Parent $runtimePath)
++
++if (-not $PotatoCliPath) {
++    $PotatoCliPath = Join-Path -Path (Split-Path -Parent $FrameworkRoot) -ChildPath 'potato-cli\potato.ps1'
++}
++if (-not $TestCaseCsv) {
++    $TestCaseCsv = Join-Path -Path (Split-Path -Parent $PSScriptRoot) -ChildPath 'input\Microsoft Word.csv'
++}
++if (-not $RunRoot) {
++    $RunRoot = Join-Path -Path (Split-Path -Parent $PSScriptRoot) -ChildPath ('word-generated-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
++}
++
++. $runtimePath
++
++function Test-FilePrefix {
++    [CmdletBinding()]
++    param(
++        [Parameter(Mandatory)] [string] $Path,
++        [Parameter(Mandatory)] [byte[]] $ExpectedBytes
++    )
++
++    if (-not (Test-Path -LiteralPath $Path)) { return $false }
++    $stream = [System.IO.File]::OpenRead($Path)
++    try {
++        if ($stream.Length -lt $ExpectedBytes.Length) { return $false }
++        $actual = New-Object byte[] $ExpectedBytes.Length
++        [void] $stream.Read($actual, 0, $actual.Length)
++        for ($i = 0; $i -lt $ExpectedBytes.Length; $i++) {
++            if ($actual[$i] -ne $ExpectedBytes[$i]) { return $false }
++        }
++        return $true
++    }
++    finally {
++        $stream.Dispose()
++    }
++}
++
++function Invoke-ClickWordBrowse {
++    [CmdletBinding()]
++    param([Parameter(Mandatory)] [ref] $Commands)
++
++    $browse = Invoke-ClickAny -Commands $Commands -Names @('Browse') -ControlType 'Button' -TimeoutMs 7000
++    Assert-PotatoOk -Result $browse -Message 'Could not click Word Browse.'
++    return $browse
++}
++
++$Context = Initialize-AGTAGeneratedTest -PotatoCliPath $PotatoCliPath -TestCaseCsv $TestCaseCsv -RunRoot $RunRoot -RequireAssertions
++$results = @()
++$cleanup = @()
++
++$documentPath = Join-Path -Path $Context.ExecutionEvidenceRoot -ChildPath 'WordGuiTestDocument.docx'
++$printedPdfPath = Join-Path -Path $Context.ExecutionEvidenceRoot -ChildPath 'WordGuiTestDocument.pdf'
++$documentText = "Word GUI automation test document`r`nCreated by PoTATo execution $($Context.ExecutionId)."
++
++Register-CreatedExternalPath -Path $documentPath
++Register-CreatedExternalPath -Path $printedPdfPath
++
++try {
++    $results += Invoke-RecordedStep -StepIndex 1 -Body {
++        param([ref] $Commands, [ref] $Evidence)
++
++        $state = Invoke-StepCommand -Commands $Commands -Command 'state' -Arguments @('-Clear')
++        Assert-PotatoOk -Result $state -Message 'Could not clear PoTATo state.'
++
++        $started = Invoke-StepCommand -Commands $Commands -Command 'start' -Arguments @('-ProcessName', 'winword.exe', '-WaitForWindowMs', '30000', '-Maximize')
++        Assert-PotatoOk -Result $started -Message 'Could not start Microsoft Word.'
++        Assert-ExpectedResult -Condition ([bool] $started.data.windowFound) -Message 'Microsoft Word must open a visible window.'
++        Register-OpenedProcess -ProcessName 'WINWORD'
++
++        $focused = Invoke-StepCommand -Commands $Commands -Command 'focus' -Arguments @('-ProcessName', 'WINWORD', '-WindowTitle', '*Word*', '-Maximize', '-TimeoutMs', '30000')
++        Assert-PotatoOk -Result $focused -Message 'Could not focus Microsoft Word.'
++        Invoke-EvidenceScreenshot -Commands $Commands -Evidence $Evidence -FileName '01-word-opened.png' | Out-Null
++    }
++
++    $results += Invoke-RecordedStep -StepIndex 2 -Body {
++        param([ref] $Commands, [ref] $Evidence)
++
++        $documentProbe = Invoke-StepCommand -Commands $Commands -Command 'wait-element' -Arguments @('-ControlType', 'Document', '-FindFirst', '-TimeoutMs', '1500')
++        if (-not (Test-PotatoFound -Result $documentProbe)) {
++            $blank = Invoke-StepCommand -Commands $Commands -Command 'click' -Arguments @('-Name', 'Blank document', '-ControlType', 'ListItem', '-FindFirst', '-TimeoutMs', '10000', '-Method', 'Mouse')
++            Assert-PotatoOk -Result $blank -Message 'Could not click Blank document.'
++        }
++
++        $document = Invoke-StepCommand -Commands $Commands -Command 'wait-element' -Arguments @('-ControlType', 'Document', '-FindFirst', '-TimeoutMs', '15000')
++        Assert-PotatoFound -Result $document -Message 'A new Word document must be visible.'
++
++        $typed = Invoke-StepCommand -Commands $Commands -Command 'type' -Arguments @('-Text', $documentText, '-ControlType', 'Document', '-FindFirst', '-TimeoutMs', '5000', '-Focus')
++        Assert-PotatoOk -Result $typed -Message 'Could not type into the Word document.'
++
++        $read = Invoke-StepCommand -Commands $Commands -Command 'read' -Arguments @('-ControlType', 'Document', '-FindFirst', '-TimeoutMs', '5000')
++        Assert-PotatoOk -Result $read -Message 'Could not read the Word document text.'
++        Assert-ExpectedResult -Condition (($read.data.text -like '*Word GUI automation test document*') -and ($read.data.text -like "*$($Context.ExecutionId)*")) -Message 'The created Word document must contain the typed test text.'
++        Invoke-EvidenceScreenshot -Commands $Commands -Evidence $Evidence -FileName '02-document-created.png' | Out-Null
++    }
++
++    $results += Invoke-RecordedStep -StepIndex 3 -Body {
++        param([ref] $Commands, [ref] $Evidence)
++
++        $saveHotkey = Invoke-StepCommand -Commands $Commands -Command 'hotkey' -Arguments @('-Keys', '^s', '-Focus')
++        Assert-PotatoOk -Result $saveHotkey -Message 'Could not open Word Save As.'
++
++        $saveAs = Invoke-StepCommand -Commands $Commands -Command 'wait-element' -Arguments @('-Name', 'Save As', '-TimeoutMs', '10000')
++        Assert-PotatoFound -Result $saveAs -Message 'Word Save As screen or dialog must appear.'
++
++        $browseProbe = Invoke-StepCommand -Commands $Commands -Command 'select' -Arguments @('-Name', 'Browse', '-ControlType', 'Button', '-FindFirst', '-TimeoutMs', '2000')
++        if (Test-PotatoFound -Result $browseProbe) {
++            Invoke-ClickWordBrowse -Commands $Commands | Out-Null
++            $dialog = Invoke-StepCommand -Commands $Commands -Command 'wait-element' -Arguments @('-Name', 'Save As', '-ControlType', 'Window', '-FindFirst', '-TimeoutMs', '10000')
++            Assert-PotatoFound -Result $dialog -Message 'The Save As file dialog must open.'
++        }
++
++        $typedPath = Invoke-StepCommand -Commands $Commands -Command 'type' -Arguments @('-Text', $documentPath, '-Focus', '-PreDelete', '-ClearMethod', 'Shortcut')
++        Assert-PotatoOk -Result $typedPath -Message 'Could not type the Word output path.'
++        $confirm = Invoke-StepCommand -Commands $Commands -Command 'hotkey' -Arguments @('-Keys', '{ENTER}', '-Focus')
++        Assert-PotatoOk -Result $confirm -Message 'Could not confirm the Word Save As dialog.'
++
++        $wait = Invoke-StepCommand -Commands $Commands -Command 'wait-file' -Arguments @('-Path', $documentPath, '-TimeoutMs', '20000', '-MinBytes', '1', '-StableMs', '500')
++        Assert-FileWait -Result $wait -Path $documentPath
++        Assert-ExpectedResult -Condition (Test-FilePrefix -Path $documentPath -ExpectedBytes ([byte[]] @(0x50, 0x4B))) -Message 'The saved Word document must be a DOCX/ZIP file.'
++        Add-EvidencePath -Evidence $Evidence -Path $documentPath
++    }
++
++    $results += Invoke-RecordedStep -StepIndex 4 -Body {
++        param([ref] $Commands, [ref] $Evidence)
++
++        $closeDoc = Invoke-StepCommand -Commands $Commands -Command 'hotkey' -Arguments @('-Keys', '^w', '-Focus')
++        Assert-PotatoOk -Result $closeDoc -Message 'Could not close the saved Word document before reopening it.'
++
++        $openHotkey = Invoke-StepCommand -Commands $Commands -Command 'hotkey' -Arguments @('-Keys', '^o', '-Focus')
++        Assert-PotatoOk -Result $openHotkey -Message 'Could not open Word Open view.'
++        Invoke-ClickWordBrowse -Commands $Commands | Out-Null
++        $openDialog = Invoke-StepCommand -Commands $Commands -Command 'wait-element' -Arguments @('-Name', 'Open', '-ControlType', 'Window', '-FindFirst', '-TimeoutMs', '10000')
++        Assert-PotatoFound -Result $openDialog -Message 'The Open file dialog must appear.'
++
++        $typedPath = Invoke-StepCommand -Commands $Commands -Command 'type' -Arguments @('-Text', $documentPath, '-Focus', '-PreDelete', '-ClearMethod', 'Shortcut')
++        Assert-PotatoOk -Result $typedPath -Message 'Could not type the saved Word document path.'
++        $confirm = Invoke-StepCommand -Commands $Commands -Command 'hotkey' -Arguments @('-Keys', '{ENTER}', '-Focus')
++        Assert-PotatoOk -Result $confirm -Message 'Could not confirm the Word Open dialog.'
++
++        $openedWindow = Invoke-StepCommand -Commands $Commands -Command 'windows' -Arguments @('-ProcessName', 'WINWORD', '-WindowTitle', '*WordGuiTestDocument*', '-TimeoutMs', '15000')
++        Assert-PotatoFound -Result $openedWindow -Message 'The created Word document must reopen in Microsoft Word.'
++        $document = Invoke-StepCommand -Commands $Commands -Command 'wait-element' -Arguments @('-ControlType', 'Document', '-FindFirst', '-TimeoutMs', '15000')
++        Assert-PotatoFound -Result $document -Message 'The reopened Word document must show an editable document surface.'
++        Invoke-EvidenceScreenshot -Commands $Commands -Evidence $Evidence -FileName '04-document-reopened.png' | Out-Null
++    }
++
++    $results += Invoke-RecordedStep -StepIndex 5 -Body {
++        param([ref] $Commands, [ref] $Evidence)
++
++        $printHotkey = Invoke-StepCommand -Commands $Commands -Command 'hotkey' -Arguments @('-Keys', '^p', '-Focus')
++        Assert-PotatoOk -Result $printHotkey -Message 'Could not open Word Print view.'
++        $pdfPrinter = Invoke-StepCommand -Commands $Commands -Command 'select' -Arguments @('-Name', '*Microsoft Print to PDF*', '-FindFirst', '-TimeoutMs', '10000')
++        Assert-PotatoFound -Result $pdfPrinter -Message 'Microsoft Print to PDF must be selected or visible as the printer.'
++
++        Invoke-EvidenceScreenshot -Commands $Commands -Evidence $Evidence -FileName '05-print-ready.png' | Out-Null
++        $print = Invoke-StepCommand -Commands $Commands -Command 'click' -Arguments @('-Name', 'Print', '-ControlType', 'Button', '-FindFirst', '-TimeoutMs', '7000', '-Method', 'Invoke')
++        Assert-PotatoOk -Result $print -Message 'Could not click Word Print.'
++
++        $printDialog = Invoke-StepCommand -Commands $Commands -Command 'wait-element' -Arguments @('-Name', 'Save Print Output As', '-ControlType', 'Window', '-FindFirst', '-TimeoutMs', '15000')
++        Assert-PotatoFound -Result $printDialog -Message 'The Microsoft Print to PDF save dialog must appear.'
++        $typedPath = Invoke-StepCommand -Commands $Commands -Command 'type' -Arguments @('-Text', $printedPdfPath, '-Focus', '-PreDelete', '-ClearMethod', 'Shortcut')
++        Assert-PotatoOk -Result $typedPath -Message 'Could not type the PDF output path.'
++        $confirm = Invoke-StepCommand -Commands $Commands -Command 'hotkey' -Arguments @('-Keys', '{ENTER}', '-Focus')
++        Assert-PotatoOk -Result $confirm -Message 'Could not confirm the PDF output path.'
++
++        $wait = Invoke-StepCommand -Commands $Commands -Command 'wait-file' -Arguments @('-Path', $printedPdfPath, '-TimeoutMs', '25000', '-MinBytes', '1', '-StableMs', '500')
++        Assert-FileWait -Result $wait -Path $printedPdfPath
++        Assert-ExpectedResult -Condition (Test-FilePrefix -Path $printedPdfPath -ExpectedBytes ([byte[]] @(0x25, 0x50, 0x44, 0x46))) -Message 'The printed output must be a PDF file.'
++        Add-EvidencePath -Evidence $Evidence -Path $printedPdfPath
++    }
++}
++finally {
++    $cleanup = @(Invoke-TestCleanup -DiscardPromptNames @("Don't Save", 'Do Not Save', 'No', 'Close without saving'))
++}
++
++Complete-AGTAGeneratedTest -StepResults $results -Cleanup $cleanup -ExtraArtifacts @{
++    documentPath = $documentPath
++    printedPdfPath = $printedPdfPath
++}
+*** End Patch

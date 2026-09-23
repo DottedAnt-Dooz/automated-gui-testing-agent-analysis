@@ -1,0 +1,11 @@
+*** Begin Patch
+*** Update File: C:\diplomamunka\automated-gui-testing-agent-framework\runs\20260923_051449_89130a47-39fd-4b44-bfb7-5926972819fd\generated\MicrosoftWord.Generated.ps1
+@@
+-    $stream = [System.IO.File]::OpenRead($Path)
++    $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+@@
+-        $pdfPrinter = Invoke-StepCommand -Commands $Commands -Command 'select' -Arguments @('-Name', '*Microsoft Print to PDF*', '-FindFirst', '-TimeoutMs', '10000')
+-        Assert-PotatoFound -Result $pdfPrinter -Message 'Microsoft Print to PDF must be selected or visible as the printer.'
++        $printButton = Invoke-StepCommand -Commands $Commands -Command 'select' -Arguments @('-Name', 'Print', '-ControlType', 'Button', '-FindFirst', '-TimeoutMs', '10000')
++        Assert-PotatoFound -Result $printButton -Message 'The Word Print command must be visible.'
+*** End Patch

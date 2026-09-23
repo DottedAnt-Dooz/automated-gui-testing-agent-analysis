@@ -1,0 +1,16 @@
+*** Begin Patch
+*** Update File: scripts/Invoke-WordGuiTest.ps1
+@@
+     $dialog = Wait-ForDialog "Save As"
+     Set-Foreground $dialog
+-    Set-DialogText -Dialog $dialog -AutomationId "1001" -Value $script:DocumentPath
++    Send-TextAsUser $script:DocumentPath
+     $save = Find-Element -Root $dialog -Name "Save" -ControlType ([System.Windows.Automation.ControlType]::Button) -Timeout 10
+     Invoke-Element $save
+@@
+         $dialog = Wait-ForDialog "Save Print Output As"
+         Set-Foreground $dialog
+-        Set-DialogText -Dialog $dialog -AutomationId "1001" -Value $script:PrintPath
++        Send-TextAsUser $script:PrintPath
+         $save = Find-Element -Root $dialog -Name "Save" -ControlType ([System.Windows.Automation.ControlType]::Button) -Timeout 10
+*** End Patch

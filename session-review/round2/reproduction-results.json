@@ -1,0 +1,10 @@
+{
+    "powershellVersion":  "5.1.22621.2506",
+    "emptyRectangleConversionThrows":  true,
+    "parameterScope":  {
+                           "outerParameterPresent":  true,
+                           "innerParameterPresent":  false
+                       },
+    "openReadFailsWithExistingWriter":  true,
+    "readWriteSharedReadSucceeds":  true
+}
